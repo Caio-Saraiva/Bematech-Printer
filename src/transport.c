@@ -39,11 +39,9 @@ fail:snprintf(error,error_size,"Serial error %lu",(unsigned long)GetLastError())
     stage="read attributes";
     if(fcntl(fd,F_SETFL,0)<0||tcgetattr(fd,&t)<0)goto close_fail;
     t.c_iflag=0;t.c_oflag=0;t.c_lflag=0;
-    t.c_cflag &= ~(CSIZE|PARENB|CSTOPB|HUPCL);
-#ifdef CRTSCTS
-    t.c_cflag &= ~CRTSCTS;
-#endif
-    t.c_cflag |= CS8|CREAD|CLOCAL;t.c_cc[VMIN]=0;t.c_cc[VTIME]=0;
+    /* Replace inherited control flags, including platform-specific modem
+       flow control, rather than retaining the previous application's state. */
+    t.c_cflag=CS8|CREAD|CLOCAL;t.c_cc[VMIN]=0;t.c_cc[VTIME]=0;
     stage="set speed";if(cfsetispeed(&t,B9600)<0||cfsetospeed(&t,B9600)<0)goto close_fail;
     stage="set attributes";if(tcsetattr(fd,TCSANOW,&t)<0)goto close_fail;
     stage="write";

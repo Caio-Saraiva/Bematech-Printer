@@ -57,11 +57,23 @@ try:
             import select
             master, slave = pty.openpty()
             try:
-                result = subprocess.run([binary, "text", str(text), "--device", os.ttyname(slave)],
-                                        capture_output=True, timeout=5)
-                assert result.returncode == 0, result.stderr
-                assert select.select([master], [], [], 2)[0]
-                assert os.read(master, 1024) == output.read_bytes()
+                # Darwin's tcdrain waits for the PTY master to consume output.
+                # Read concurrently instead of waiting for the writer to exit.
+                writer = subprocess.Popen([binary, "text", str(text), "--device", os.ttyname(slave)],
+                                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                try:
+                    expected = output.read_bytes()
+                    received = b""
+                    while len(received) < len(expected):
+                        assert select.select([master], [], [], 5)[0], "Virtual serial timed out"
+                        received += os.read(master, 1024)
+                    _, stderr = writer.communicate(timeout=5)
+                    assert writer.returncode == 0, stderr
+                    assert received == expected
+                finally:
+                    if writer.poll() is None:
+                        writer.kill()
+                        writer.wait()
             finally:
                 os.close(master)
                 os.close(slave)
