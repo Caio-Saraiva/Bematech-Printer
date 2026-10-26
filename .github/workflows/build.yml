@@ -44,7 +44,10 @@ jobs:
           sh packaging/appimage.sh build "$RUNNER_TEMP/appimagetool-x86_64.AppImage"
       - name: Package Windows installer
         if: runner.os == 'Windows'
-        run: cpack --config build/CPackConfig.cmake -C Release -G NSIS
+        run: |
+          choco install nsis --yes --no-progress
+          $env:Path += ";C:\Program Files (x86)\NSIS"
+          cpack --config build/CPackConfig.cmake -C Release -G NSIS
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: sh packaging/macos.sh build
