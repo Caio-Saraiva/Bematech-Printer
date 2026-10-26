@@ -1,4 +1,8 @@
-# 0.1.0 — initial preview
+# 0.1.1 — initial preview, packaging update
+
+Windows uses the static MSVC runtime, so a separate Visual C++ redistributable
+is not needed. The release-wide SHA256SUMS manifest matches the final,
+platform-prefixed download filenames. Version 0.1.0 was the initial CI preview.
 
 Includes a C99 printer engine, Win32/POSIX serial adapters, embedded local
 web studio, CLI export/print, English and Brazilian Portuguese UI, six tools,

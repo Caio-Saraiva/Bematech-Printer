@@ -2,7 +2,7 @@
 #define BEMATECH_H
 #include <stddef.h>
 #include <stdint.h>
-#define BP_VERSION "0.1.0"
+#define BP_VERSION "0.1.1"
 #define BP_MAX_JOB (4u * 1024u * 1024u)
 typedef struct { uint8_t *data; size_t len, cap; } bp_buffer;
 typedef struct { int columns, dots, spacing, feed, cut; } bp_options;

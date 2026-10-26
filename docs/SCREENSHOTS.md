@@ -4,6 +4,8 @@ Real browser captures of the local application running against the C simulation
 server. No physical printer was contacted. The hosted playground uses the same
 interface with a separate browser-only wrapper.
 
+Captured with UI version 0.1.0; the 0.1.1 update changes packaging only.
+
 Capturas reais da aplicação local com o servidor C em simulação. Nenhuma
 impressora física foi acionada. A demo usa a mesma interface e um wrapper separado.
 

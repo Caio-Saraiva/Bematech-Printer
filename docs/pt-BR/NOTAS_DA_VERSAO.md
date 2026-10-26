@@ -1,4 +1,8 @@
-# 0.1.0 — versão inicial de prévia
+# 0.1.1 — prévia inicial, atualização dos pacotes
+
+Windows usa runtime MSVC estático, dispensando instalação separada do
+redistribuível Visual C++. O manifesto SHA256SUMS geral usa os nomes finais
+dos downloads. A versão 0.1.0 foi a prévia inicial de CI.
 
 Inclui motor C99, serial Win32/POSIX, interface web local embutida, CLI,
 seis ferramentas, interface EN/PT-BR, exportações PNG/PBM/ESC-Bema,
