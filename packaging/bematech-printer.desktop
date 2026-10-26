@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Bematech Printer
+Comment=Local thermal printing studio
+Exec=bematech-printer
+Icon=bematech-printer
+Terminal=true
+Categories=Utility;Graphics;

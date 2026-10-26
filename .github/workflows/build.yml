@@ -1,0 +1,86 @@
+name: Build and test native apps
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            label: linux-x86_64
+          - os: windows-latest
+            label: windows-x86_64
+          - os: macos-15
+            label: macos-arm64
+          - os: macos-15-intel
+            label: macos-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Test C contracts
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Package portable archives
+        run: cpack --config build/CPackConfig.cmake -C Release -G ZIP
+      - name: Package Debian
+        if: runner.os == 'Linux'
+        run: cpack --config build/CPackConfig.cmake -G DEB
+      - name: Package AppImage
+        if: runner.os == 'Linux'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download 1.9.1 --repo AppImage/appimagetool --pattern appimagetool-x86_64.AppImage --dir "$RUNNER_TEMP"
+          chmod +x "$RUNNER_TEMP/appimagetool-x86_64.AppImage"
+          sh packaging/appimage.sh build "$RUNNER_TEMP/appimagetool-x86_64.AppImage"
+      - name: Package Windows installer
+        if: runner.os == 'Windows'
+        run: cpack --config build/CPackConfig.cmake -C Release -G NSIS
+      - name: Package macOS app
+        if: runner.os == 'macOS'
+        run: sh packaging/macos.sh build
+      - name: Stage packages and checksums
+        shell: bash
+        run: |
+          mkdir -p dist
+          for package in ./*.zip ./*.deb ./*.exe build/*.AppImage build/*.dmg; do
+            if [ -f "$package" ]; then cp "$package" dist/; fi
+          done
+          python3 tools/checksums.py dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bematech-${{ matrix.label }}
+          path: dist/
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: native
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+      - name: Preserve platform names
+        run: |
+          mkdir release
+          for dir in packages/*; do
+            label="$(basename "$dir")"
+            for package in "$dir"/*; do
+              cp "$package" "release/${label}-$(basename "$package")"
+            done
+          done
+      - name: Publish preview release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --prerelease --title "Bematech Printer $GITHUB_REF_NAME" --notes-file docs/en/RELEASE_NOTES.md

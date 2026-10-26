@@ -1,0 +1,15 @@
+build*/
+dist/
+output/
+.playwright-cli/
+.DS_Store
+*.bin
+*.pbm
+*.log
+*.key
+*.pem
+.env*
+!.env.example
+.openai/
+demo/
+hosting/
