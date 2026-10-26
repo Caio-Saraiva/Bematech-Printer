@@ -3,8 +3,8 @@
 <plist version="1.0"><dict>
 <key>CFBundleName</key><string>Bematech Printer</string>
 <key>CFBundleIdentifier</key><string>io.github.caio-saraiva.bematech-printer</string>
-<key>CFBundleVersion</key><string>0.1.1</string>
-<key>CFBundleShortVersionString</key><string>0.1.1</string>
+<key>CFBundleVersion</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
 <key>CFBundleExecutable</key><string>launcher</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHighResolutionCapable</key><true/>

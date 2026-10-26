@@ -1,4 +1,4 @@
-#include "bematech.h"
+#include "native.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,11 +26,11 @@ typedef int bp_socket;
 #define BAD_SOCKET (-1)
 #endif
 #include "web_assets.h"
-#define HTTP_LIMIT (2u*1024u*1024u)
+#define HTTP_LIMIT (16u*1024u*1024u)
 static int send_all(bp_socket s,const void *p,size_t n){const char *b=p;while(n){int k=send(s,b,(int)n,0);if(k<=0)return -1;b+=k;n-=(size_t)k;}return 0;}
 static void reply(bp_socket s,int code,const char *type,const void *body,size_t size){
     char header[1024];int n=snprintf(header,sizeof(header),
-    "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nContent-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\r\n\r\n",
+    "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nX-Frame-Options: DENY\r\nContent-Security-Policy: default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'\r\n\r\n",
     code,code==200?"OK":code==202?"Accepted":"Error",type,size);
     if(n>0 && (size_t)n<sizeof(header)&&!send_all(s,header,(size_t)n))send_all(s,body,size);
 }
@@ -65,11 +65,11 @@ static void launch(unsigned port){
     if(child>0)waitpid(child,NULL,0);
 #endif
 }
-static void request(bp_socket client,const char *device,unsigned port,const bp_options *opt){
+static void request(bp_socket client,bp_app *app,unsigned port){
     char *buf=malloc(HTTP_LIMIT+1),method[12],path[256],version[20],*end;
     char host[128],expected[128],length[32],origin[128],marker[32],transfer[64];
     size_t received=0,body_start=0,body_size=0;int k,hlen;unsigned long long wanted=0;
-    bp_buffer job={0};char response[192],error[256];
+    bp_response response={0};
     if(!buf){json(client,500,"{\"error\":\"Out of memory\"}");return;}
     while(received<16384){
         k=recv(client,buf+received,(int)(16384-received),0);if(k<=0)goto done;
@@ -84,8 +84,8 @@ static void request(bp_socket client,const char *device,unsigned port,const bp_o
     hlen=header(buf,"Host",host,sizeof(host));
     if(hlen!=1 || strcmp(host,expected)){json(client,403,"{\"error\":\"Use the printed loopback URL\"}");goto done;}
     if(!strcmp(method,"GET")){
-        size_t i;if(!strcmp(path,"/api/info")){
-            snprintf(response,sizeof(response),"{\"version\":\"%s\",\"mode\":\"%s\",\"dots\":%d,\"columns\":%d,\"spacing\":%d,\"feed\":%d,\"cut\":%s}",BP_VERSION,device?"serial":"simulation",opt->dots,opt->columns,opt->spacing,opt->feed,opt->cut?"true":"false");json(client,200,response);goto done;
+        size_t i;if(!strncmp(path,"/api/",5)){
+            bp_app_request(app,method,path,NULL,0,&response);reply(client,response.status,response.type,response.body.data,response.body.len);goto done;
         }
         if(!strcmp(path,"/"))strcpy(path,"/index.html");
         for(i=0;i<sizeof(assets)/sizeof(assets[0]);i++)if(!strcmp(path,assets[i].path)){
@@ -93,7 +93,7 @@ static void request(bp_socket client,const char *device,unsigned port,const bp_o
         }
         json(client,404,"{\"error\":\"Not found\"}");goto done;
     }
-    if(strcmp(method,"POST") || (strcmp(path,"/api/print")&&strcmp(path,"/api/text"))){json(client,404,"{\"error\":\"Not found\"}");goto done;}
+    if(strcmp(method,"POST") || strncmp(path,"/api/",5)){json(client,404,"{\"error\":\"Not found\"}");goto done;}
     /* Local-only boundary, without accounts: browser requests must originate here.
        Custom header blocks form POSTs; no CORS/preflight permission is provided. */
     snprintf(expected,sizeof(expected),"http://127.0.0.1:%u",port);
@@ -103,22 +103,18 @@ static void request(bp_socket client,const char *device,unsigned port,const bp_o
     }
     if(header(buf,"Transfer-Encoding",transfer,sizeof(transfer))!=0 || header(buf,"Content-Length",length,sizeof(length))!=1){json(client,400,"{\"error\":\"Content-Length required\"}");goto done;}
     {char *q=length;if(!*q)goto invalid;while(*q){if(*q<'0'||*q>'9'||wanted>HTTP_LIMIT)goto invalid;wanted=wanted*10+(unsigned)(*q++-'0');}}
-    if(!wanted||wanted>HTTP_LIMIT-body_start)goto invalid;
+    if(wanted>HTTP_LIMIT-body_start)goto invalid;
     body_size=(size_t)wanted;
     while(received<body_start+body_size){k=recv(client,buf+received,(int)(body_start+body_size-received),0);if(k<=0)goto done;received+=(size_t)k;}
     buf[body_start+body_size]=0;
-    if(!strcmp(path,"/api/text")){
-        if(memchr(buf+body_start,0,body_size))goto invalid;
-        k=bp_text(&job,buf+body_start,opt);
-    }else k=bp_pbm(&job,(uint8_t *)buf+body_start,body_size,opt);
-    if(k)goto invalid;
-    if(device && bp_send(device,job.data,job.len,error,sizeof(error))){fprintf(stderr,"%s\n",error);json(client,500,"{\"error\":\"Serial write failed. Check the terminal and device.\"}");goto done;}
-    snprintf(response,sizeof(response),"{\"status\":\"%s\",\"bytes\":%zu}",device?"sent":"simulated",job.len);json(client,202,response);goto done;
+    bp_app_request(app,method,path,buf+body_start,body_size,&response);
+    reply(client,response.status,response.type,response.body.data,response.body.len);goto done;
 invalid:json(client,400,"{\"error\":\"Invalid or oversized print data\"}");
-done:bp_free(&job);free(buf);
+done:bp_free(&response.body);free(buf);
 }
-int bp_serve(const char *device,unsigned port,int open_browser,const bp_options *opt){
-    bp_socket server,client;struct sockaddr_in addr;int reuse=1;
+int bp_serve(const char *device,unsigned port,int open_browser,const bp_options *opt,const char *config,unsigned overrides){
+    bp_socket server,client;struct sockaddr_in addr;int reuse=1;bp_app app;
+    if(bp_app_init(&app,device,opt,config,overrides))return 1;
 #ifdef _WIN32
     WSADATA wsa;if(WSAStartup(MAKEWORD(2,2),&wsa))return 1;
 #else
@@ -137,7 +133,7 @@ int bp_serve(const char *device,unsigned port,int open_browser,const bp_options 
 #else
         {struct timeval timeout={10,0};setsockopt(client,SOL_SOCKET,SO_RCVTIMEO,&timeout,sizeof(timeout));setsockopt(client,SOL_SOCKET,SO_SNDTIMEO,&timeout,sizeof(timeout));}
 #endif
-        request(client,device,port,opt);
+        request(client,&app,port);
         /* Let error responses reach clients even when a rejected request has
            unread body bytes. A bounded drain avoids TCP reset on close. */
         shutdown(client,1);
@@ -149,6 +145,7 @@ int bp_serve(const char *device,unsigned port,int open_browser,const bp_options 
         CLOSE(client);
     }
     CLOSE(server);
+    bp_app_close(&app);
 #ifdef _WIN32
     WSACleanup();
 #endif

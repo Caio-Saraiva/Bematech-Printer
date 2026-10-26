@@ -1,184 +1,212 @@
-# Instalar e usar
+# Instalação e guia completo
 
 [English](../en/USER_GUIDE.md) · [Português](GUIA_DO_USUARIO.md)
 
-## Instalação por plataforma
+## Instalar e abrir
 
-| Sistema | Pacote | Como abrir |
+| Plataforma | Pacote | Abertura |
 | --- | --- | --- |
-| Windows x86-64 | Instalador NSIS (.exe) ou ZIP portátil | Atalho do menu Iniciar ou bin/bematech-printer.exe |
-| Linux x86-64 | Debian .deb, AppImage ou ZIP | Menu de aplicativos ou terminal |
-| macOS Apple silicon / Intel | DMG com .app ou ZIP | Abra o app ou execute pelo Terminal |
+| Windows x86-64 | Instalador NSIS ou ZIP | Menu Iniciar ou bin/bematech-printer.exe |
+| Linux x86-64 | DEB, AppImage ou ZIP | Menu ou terminal |
+| macOS Intel/Apple silicon | DMG ou ZIP | Arraste .app para Aplicativos e abra |
 
-Escolha a arquitetura do seu computador. A versão inicial não possui
-certificado público de assinatura do Windows nem notarização Apple. O app
-macOS recebe assinatura ad-hoc de integridade. Siga a política do seu sistema
-para programas compilados localmente; também é possível compilar a fonte.
-
-Debian/Ubuntu:
+Escolha a arquitetura correta. Windows não possui certificado público de
+assinatura; macOS usa assinatura ad-hoc, sem notarização. Siga a política do
+sistema ou compile a fonte.
 
 ~~~sh
+# Debian/Ubuntu
 sudo apt install ./*bematech-printer*.deb
 bematech-printer
-~~~
-
-AppImage:
-
-~~~sh
+# AppImage
 chmod +x bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
 ./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
-# Se não houver FUSE:
+# Sem FUSE
 ./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage --appimage-extract-and-run
 ~~~
 
-A interface está embutida no executável. Mantenha o programa aberto enquanto
-usa o estúdio. Ctrl+C encerra uma execução pelo terminal. No macOS, o Monitor
-de Atividade permite encerrar um app iniciado sem terminal. Para outra instância,
-use uma porta diferente, por exemplo --port 8425.
+O executável abre http://127.0.0.1:8421. Mantenha-o em execução enquanto usa
+a interface. Ctrl+C encerra a sessão do terminal; no macOS, também é possível
+encerrar no Monitor de Atividade. Fechar o navegador não encerra o servidor C.
+Use --port 8425 para outra instância.
 
-No DMG macOS, arraste o app para Aplicativos. Para escolher a impressora real,
-execute o binário embutido pelo Terminal:
-
-~~~sh
-"/Applications/Bematech Printer.app/Contents/MacOS/bematech-printer" serve --device /dev/cu.usbmodem1234
-~~~
-
-Nos ZIPs, o executável fica no diretório bin/ extraído. No Windows, abra o
-PowerShell nesse diretório antes de usar .\bematech-printer.exe. No AppImage,
-adicione --device PORTA ao próprio comando do AppImage.
-
-## Primeira execução: simulação
-
-Sem --device, o aplicativo abre http://127.0.0.1:8421 em SIMULAÇÃO.
-Experimente as ferramentas, use Simular impressão, confira o histórico da
-sessão e salve um PNG. Nenhuma porta serial é aberta nesse modo.
-
-Para uma prévia web estritamente local, sirva web/ com um servidor estático.
-Exemplo opcional para quem já tem Python:
+No Windows, abra PowerShell no diretório bin/ extraído. No macOS instalado:
 
 ~~~sh
-python3 -m http.server 8422 --bind 127.0.0.1 --directory web
+"/Applications/Bematech Printer.app/Contents/MacOS/bematech-printer" --help
 ~~~
 
-Esse modo estático permite prévia/exportação. A impressão real precisa do
-executável C. A demo hospedada funciona inteiramente no navegador e possui um
-wrapper separado que desativa a procura pela API local.
+## Configurar USB/Serial
 
-## Conectar a MP-4200 TH
+Abra **Conexão**, que substitui a ação de autenticação do serviço original.
 
-1. Ligue a impressora, conecte USB, coloque papel e feche a tampa.
-2. Identifique a serial CDC: Gerenciador de Dispositivos → Portas no Windows;
-   /dev/ttyACM* ou /dev/serial/by-id/ no Linux; /dev/cu.usbmodem* no macOS.
-3. Encerre a simulação e inicie com a porta:
+| Transporte | Dispositivo | Uso |
+| --- | --- | --- |
+| Simulação | Nenhum | Experimentar sem abrir equipamento |
+| Serial / USB CDC | COM3, /dev/ttyACM0, /dev/ttyUSB0, /dev/cu.usbmodem… | MP-4200 como serial virtual |
+| USB | /dev/usb/lpN no Linux; fila USB instalada no Windows | Classe USB de impressão |
+| Fila RAW do sistema | Nome da impressora instalada | Spooler Windows ou CUPS Unix/macOS |
 
-~~~sh
-# Linux
-bematech-printer serve --device /dev/ttyACM0
-# macOS: substitua a porta
-bematech-printer serve --device /dev/cu.usbmodem1234
-# PowerShell
-.\bematech-printer.exe serve --device COM3
-~~~
+Detecte dispositivos ou informe a porta/fila. Configure e salve. **Salvar e
+testar conexão** abre o dispositivo sem imprimir; não certifica papel/tampa.
+A demo nunca abre USB/serial.
 
-SERIAL ATIVA indica que uma porta foi configurada ao iniciar; não é uma
-consulta física de papel/tampa. Imprima algo curto e confira o dialeto
-ESC/Bema. Use apenas um programa por porta.
+Padrões: 9600 baud, 8 bits, sem paridade, 1 parada. Velocidades: 1200, 2400,
+4800, 9600, 19200, 38400, 57600, 115200. Dados: 7/8. Paridade: nenhuma/par/ímpar.
+Parada: 1/2. Os controles seriais não se aplicam às filas RAW.
 
-No Linux, permita acesso ao grupo da serial, normalmente dialout. Depois de
-adicionar o usuário ao grupo, saia e entre na sessão. Não use permissão global
-de escrita no dispositivo. /dev/serial/by-id/ pode oferecer um nome estável
-quando o número ttyACM muda ao reconectar.
+USB CDC usa transporte serial apesar do cabo USB. Fila Windows requer
+impressora/porta instaladas. CUPS deve encaminhar bytes RAW, sem renderizar
+o trabalho. Configure o equipamento em ESC/Bema.
 
-## Estúdio de texto
+No Linux, use o grupo de acesso apropriado (normalmente dialout ou lp), saia e
+entre após alterar o grupo. Não deixe o dispositivo gravável por qualquer
+usuário. Prefira /dev/serial/by-id/ quando disponível. Use um processo por
+impressora física.
 
-Digite ou importe TXT, Markdown, CSV e LOG em UTF-8. A leitura é texto puro.
-Escolha tamanho normal/grande e alinhamento. A primeira linha recebe destaque;
-as outras preservam as quebras explícitas e quebram por contagem de caracteres.
+## Editor e prévia
 
-O navegador desenha o texto como bitmap usando fonte monoespaçada. Os glifos
-dependem das fontes do sistema; emoji/CJK podem faltar. PNG e PBM preservam
-exatamente o bitmap gerado. Limites: 16.000 caracteres, importação de 64 KB e
-recibo de 6.000 linhas de pixels. Divida documentos extensos em vários trabalhos.
+Selecione texto para negrito, itálico e sublinhado. Use alinhamento, expandido
+e condensado. A compatibilidade do condensado é controlada em Ajustes.
+Editor rico, quebra por colunas, papel, zoom e divisor redimensionável originais
+foram preservados.
 
-## Listas e notas
+48 colunas normais e 64 condensadas são pontos de partida. Calibre a unidade.
+A web rasteriza caracteres fora de CP850 conforme as fontes do navegador.
+O C converte o bitmap em comandos gráficos; a CLI também possui texto CP850
+direto. Configure corte e avanço no rodapé da prévia.
 
-Informe o título e um item por linha. Linhas vazias são ignoradas. Marcadores e
-recuos de continuação são automáticos. Use para compras, separação ou tarefas.
+## Lista
 
-## Laboratório de imagem
+Informe título e itens ricos, um por linha. Data/hora, marcadores e recuos são
+automáticos. Os estilos internos são preservados na impressão/exportação.
 
-Escolha PNG, JPEG ou WebP de até 10 MB e 32 megapixels. A imagem fica no
-navegador; áreas transparentes são compostas sobre branco.
+## Arquivo, PDF e Office
 
-| Controle | Efeito |
-| --- | --- |
-| Atkinson | Pontilhamento contrastado, apropriado ao papel térmico |
-| Floyd–Steinberg | Propaga erro e preserva mais gradações |
-| Bayer 4×4 | Padrão regular ordenado |
-| Limiar | Conversão direta preto/branco |
-| Largura | Total, 75% ou 50% da cabeça configurada, centralizada |
-| Brilho | Deslocamento de -100 a +100 |
-| Contraste | Escala entre 0,25 e 2,5 |
-| Girar | Rotação de 90 graus |
+Mantém numeração, cabeçalho, condensada, corte por página ou impressão contínua,
+e intervalo entre páginas. Texto/código é lido no navegador, preservando linhas
+vazias e contador global.
 
-Carregar arte de teste gera uma paisagem original no próprio navegador.
-A altura raster é limitada a 1.800 pixels antes das margens. Imagens muito
-altas são ajustadas a esse limite; recorte a origem para preservar a proporção.
+| Ambiente | PDF | Office |
+| --- | --- | --- |
+| App C | Poppler: texto/raster | LibreOffice → PDF → Poppler |
+| Demo/navegador estático | PDF.js embutido | Extração XML de Office moderno; raster por texto |
 
-## Prancheta
+Os auxiliares nativos opcionais devem estar disponíveis como pdfinfo,
+pdftotext, pdftoppm e libreoffice. O caminho padrão Program Files do LibreOffice
+também é reconhecido no Windows. Não são pacotes Python.
+Debian/Ubuntu fornece Poppler em poppler-utils; instale também LibreOffice.
+No macOS, use sua instalação preferida de Poppler/LibreOffice. Coloque os
+executáveis no PATH antes de iniciar o app.
 
-Desenhe com mouse, caneta ou dedo. O pincel varia de 1 a 24 pixels da superfície
-original. A borracha pinta branco. Desfazer recupera até 12 estados anteriores.
-Limpar também salva um estado antes de apagar. O desenho por toque fica dentro
-da superfície, sem arrastar a página.
+Office nativo: DOC, DOCX, ODT, RTF, PPT, PPTX, XLS e XLSX. No navegador:
+DOCX, ODT, PPTX, XLSX e RTF. DOC/PPT/XLS binários precisam do app nativo ou
+exportação prévia para PDF/formato moderno. O raster Office da demo não
+reproduz todo o layout do LibreOffice.
 
-## Calculadora de impressão 3D
+Limites: 10 MB; 100 páginas de texto ou 50 raster. Texto nativo é limitado a
+20.000 caracteres por página. Raster é recortado, redimensionado, realçado
+e convertido com altura máxima de 2.000 pixels. Arquivos nativos temporários
+são removidos ao concluir; a demo não faz upload.
 
-Use a mesma moeda em todos os campos. Informe peso, preço por kg, perda,
-duração, potência média, tarifa por kWh e trabalho/extras. Potência máxima
-nominal não equivale ao consumo médio durante a impressão.
+## Foto
+
+Mantém largura útil, auto-níveis, ajuste automático, predefinições Foto térmica/
+Documento/Logo-QR/Foto escura, brilho -1..1, contraste .2..4, gama .2..4,
+limiar 0..255, Atkinson/Floyd/Bayer/limiar puro, inversão, rotação, ampliação
+de pixels e Game Boy Camera.
+
+Escolha uma imagem suportada pelo navegador. A origem fica na memória; somente
+o bitmap monocromático segue para o C. Para QR e logos, prefira limiar puro
+quando a nitidez das bordas for essencial.
+
+## Desenho
+
+Pincel, sombra, balde, borracha, seleção retangular/livre e exclusão da área
+selecionada são os originais. Há tamanhos fino/médio/grosso, tons de cinza,
+opacidade, pressão contínua, proporção, orientação e desfazer/refazer.
+
+Use mouse, caneta ou toque. Cinzas viram pontilhamento térmico. Alterar
+proporção/orientação reinicia o histórico do canvas, como no aplicativo original.
+
+## Calculadora 3D completa
+
+Mantém todos os campos originais:
+
+1. Material, preço do rolo, peso do slicer, quantidade e purga/perda.
+2. Catálogo/cadastro de impressoras, potência média, tempo e tarifa.
+3. Depreciação, valor da impressora, vida útil e residual.
+4. Trabalho manual, embalagem, extras e reserva para falhas.
+5. Taxa de pagamento, margem real, desconto, mínimo e arredondamento.
+6. Cupom detalhado ou versão para cliente, histórico e CSV.
+
+Tempo aceita decimal, 06:30 ou 6h30. Tarifa e consumos são referências editáveis;
+use custo efetivo e potência média medida. Valores permanecem em reais.
 
 ~~~text
-material = gramas / 1000 × preço_kg × (1 + perda / 100)
-energia  = horas × watts_médios / 1000 × tarifa_kWh
-custo    = material + energia + extras
-preço    = custo / (1 - margem / 100)
+peso faturado = peso × (1 + perda/100)
+energia = watts/1000 × horas × tarifa
+depreciação/hora = valor × (1 - residual/100) / vida útil
+operacional = material + energia + máquina + trabalho + embalagem + extras
+custo total = operacional × (1 + reserva/100)
+tabela = max(custo / (1 - margem/100 - taxa/100), mínimo)
+final = tabela × (1 - desconto/100)
+lucro = final × (1 - taxa/100) - custo
 ~~~
 
-Margem de 30% é uma fração do preço de venda. Para custo 10, o preço é 14,29,
-não 13. Use extras para depreciação, embalagem, trabalho e outros custos.
-Impostos, taxas, desconto e reserva de falhas não são campos independentes:
-incorpore-os deliberadamente ao seu modelo. Nenhuma tarifa é consultada na
-internet; nenhum orçamento fica no servidor.
+Margem + taxa deve ser menor que 100%. Desconto muda a margem efetiva.
+Arredondamento comercial aparece separadamente. O histórico guarda os últimos
+100 orçamentos; o CSV mantém as colunas originais e bloqueia fórmulas de planilha.
 
-## Calibração
+## Visualizar e imprimir modelos 3D
 
-Imprima a folha e confira margens e continuidade das faixas de 24 pontos.
-Reinicie com --dots e --spacing ajustados. --columns define a quebra do texto
-simples. A medida na tela não determina a largura física da cabeça térmica.
+Abra STL ASCII/binário, OBJ, 3MF ou FBX ASCII. O modelo fica no navegador.
+O parser original normaliza/otimiza a malha; arquivos têm limite de 30 MB,
+com até 35.000 triângulos renderizados após redução.
 
-## Exportação e histórico
+- Arrastar: orbitar. Alt + arrastar: rotação Z. Botão direito/Shift: mover.
+- Roda ou campo numérico: zoom até 4×.
+- Posição/rotação por campos ou cubo de orientação.
+- Eixo UP de origem ±X/±Y/±Z; perspectiva ou ortogonal; reenquadrar.
+- Fosco, metálico, reflexivo, CAD, wireframe, arestas, arestas sólidas e Custom.
+- Luz, chão/sombra, brilho, contraste, gama, limiar e pontilhamento.
+- Custom: cinza, roughness, metallic, smoothness e material iluminado.
+- Multiplicador de resolução para o efeito de pixelização original.
 
-- PNG: prévia monocromática exata.
-- PBM: P4 binário, bits MSB, linhas alinhadas a bytes; 1 significa preto.
-  Pode ser reimpresso com o comando image.
-- ESC/Bema: trabalho completo com inicialização, faixas, avanço e corte.
-  É binário específico da impressora, não um arquivo de imagem.
+Imprimir envia a imagem térmica da pose, não G-code nem um objeto 3D físico.
+A compactação 3MF depende do navegador. Converta FBX binário para ASCII FBX,
+STL ou OBJ se não for aceito.
 
-O histórico fica em memória e mostra os últimos cinco itens e o contador total.
-Recarregar elimina conteúdo e histórico; exporte o que quiser guardar.
-Sucesso na serial confirma entrega dos bytes, não papel sem atolamento.
-Evite repetição automática se o resultado físico estiver incerto.
+## Diagnóstico, calibração e exportação
 
-## Solução de problemas
+Computador mostra relatório local imprimível de sistema, CPU, RAM, disco e
+uptime. Na demo, os dados de hardware são exemplos identificados.
 
-| Sintoma | Verificação |
+Testes oferece status, página de fontes/acentos, gráfico, avanço, corte, histórico,
+RAW e calibração. O assistente calibra colunas normal/condensada, largura e
+espaçamento: desloque/refine a faixa, imprima, confira e aplique o escolhido
+ou um valor manual. Aplicação manual pede confirmação. Ajustes expõe os dez
+valores de papel/compatibilidade descritos no guia técnico.
+
+Exporte PNG, PBM P4 ou bytes ESC/Bema. Sucesso na serial confirma entrega dos
+bytes; não confirma papel sem atolamento. Confira o resultado incerto antes
+de emitir segunda via.
+
+## Persistência e problemas
+
+Perfil nativo guarda ajustes, conexão, catálogo, orçamentos e trabalhos.
+Conteúdo em edição/foto/modelo/desenho fica na página: exporte antes de
+recarregar. A demo guarda ajustes/catálogo/histórico no local storage; limpar
+os dados do site os remove.
+
+| Problema | Verifique |
 | --- | --- |
-| Porta HTTP ocupada | Encerre a outra instância ou escolha --port |
-| Navegador sem acesso | Mantenha o executável aberto e use a URL 127.0.0.1 exata |
-| Erro de serial/permissão | Nome da porta, cabo, grupo de acesso e outros programas |
-| Comandos saem escritos | Dialeto incorreto: a implementação requer ESC/Bema |
-| Listras brancas | Ajuste --spacing depois do teste físico |
-| CLI recusa caracteres | CLI aceita somente Unicode representável em CP850; use o bitmap web para outros |
-| Apenas prévia no navegador | Reinicie o executável e abra a URL impressa por ele |
-| Conteúdo desaparece | Operação em memória; salve antes de recarregar |
+| Porta HTTP ocupada | Outra instância ou --port |
+| Falha de impressão | Porta/fila, cabo, permissões e concorrência |
+| Comandos saem escritos | Modo ESC/Bema |
+| Faixas brancas | Calibração do espaçamento |
+| PDF/Office nativo falha | Auxiliares e PATH |
+| Layout Office diferente na demo | App nativo/LibreOffice ou exportar PDF |
+| CLI recusa Unicode | Caminho bitmap web ou texto compatível com CP850 |
+| Não salva ajustes | Permissão/espaço/validade do perfil |
+| Web sem conexão | Executável aberto e URL 127.0.0.1 exata |

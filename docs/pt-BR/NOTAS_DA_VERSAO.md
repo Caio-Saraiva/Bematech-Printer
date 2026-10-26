@@ -1,25 +1,22 @@
-# 0.1.1 — prévia inicial, atualização dos pacotes
+# 0.2.0 — aplicação Windows 98 original restaurada
 
-Windows usa runtime MSVC estático, dispensando instalação separada do
-redistribuível Visual C++. O manifesto SHA256SUMS geral usa os nomes finais
-dos downloads. A versão 0.1.0 foi a prévia inicial de CI.
+Restaura a identidade visual e todos os utilitários, incluindo visualização e
+impressão 3D. Substitui o redesenho simplificado da 0.1.
 
-Inclui motor C99, serial Win32/POSIX, interface web local embutida, CLI,
-seis ferramentas, interface EN/PT-BR, exportações PNG/PBM/ESC-Bema,
-verificações de fronteira local, pacotes por plataforma e documentação.
+- Editor/listas ricos, arquivos PDF/Office, foto completa, desenho avançado e
+  calculadora completa.
+- Visualizador STL/OBJ/3MF/FBX ASCII original: materiais, pose, UP, projeção,
+  luz, chão, cubo de orientação e impressão.
+- Backend C99: perfil persistente, configuração/detecção Serial/USB/fila RAW,
+  diagnóstico, histórico, calibração e conversão.
+- Sem login, contas, senha, sessões ou passkeys.
+- Mesma interface Windows 98 no app local, web local e demo.
+- Inglês principal, PT-BR, documentação e capturas atualizadas.
 
-É uma prévia. CI valida compilação, testes e pacotes; a impressão física não
-foi certificada em todos os sistemas. Teste um recibo curto na sua MP-4200 em
-modo ESC/Bema.
+PDF/Office nativos usam auxiliares opcionais. Na demo, Office raster é uma
+aproximação a partir do texto; DOC/PPT/XLS binários precisam do app nativo ou
+exportação para PDF. Consulte FEATURE_PARITY.md.
 
-## Limitações atuais
-
-- Os apps usam o navegador padrão como interface gráfica.
-- Windows não tem assinatura pública; macOS não tem notarização Apple.
-- Não é driver ESC/POS, emissor fiscal ou spooler USB genérico.
-- Sem importação PDF/Office, visualizador 3D, editor HTML rico ou histórico na nuvem.
-- Sem autodetecção de dispositivo ou consulta contínua de papel/tampa.
-- Opções nativas são argumentos CLI; reinicie para mudar.
-- Sem autenticação ou modo de publicação remota.
-- Conteúdo e histórico reiniciam ao recarregar.
-- Texto CLI aceita CP850; outros caracteres usam bitmap na versão web.
+CI testa Windows, Linux e macOS Intel/Apple silicon, sem certificar a impressão
+física. Windows não tem certificado de assinatura; macOS usa assinatura ad-hoc,
+sem notarização. O navegador é a interface gráfica do app local.

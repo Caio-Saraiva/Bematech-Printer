@@ -1,4 +1,10 @@
 build*/
+_CPack_Packages/
+*.zip
+*.deb
+*.AppImage
+*.dmg
+*.exe
 __pycache__/
 *.pyc
 dist/

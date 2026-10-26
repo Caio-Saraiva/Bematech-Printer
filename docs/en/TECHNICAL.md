@@ -1,151 +1,156 @@
 # Architecture, configuration and API
 
-[English](TECHNICAL.md) · [Português](../pt-BR/TECNICO.md)
+[Português](../pt-BR/TECNICO.md)
 
-## Data flow
+## Flow and modules
 
-~~~text
-HTML/CSS/JS local studio
-  → canvas → threshold/dither → row-packed P4 bitmap
-  → POST /api/print on IPv4 loopback
-  → C P4 parser → vertical 24-dot ESC * bands → serial
-~~~
+```text
+Original Windows 98 UI → local bridge → monochrome bitmap pages
+→ loopback HTTP → native C app → ESC/Bema encoder → selected transport
+```
 
-The CLI bypasses HTTP: text uses the UTF-8/CP850 converter, image uses the same
-P4 parser. --output exports bytes instead of opening a device. The hosted demo
-has no C process and no printer bridge.
-
-## Source map
-
-| File/directory | Responsibility |
+| Module | Responsibility |
 | --- | --- |
-| include/bematech.h | Public C API, buffer/options structures, version and maximum job size |
-| src/bematech.c | Bounded buffer growth, options validation, strict UTF-8 decoding, CP850 mapping, text wrapping, P4 parsing and ESC/Bema encoding |
-| src/transport.c | Win32 COM transport or POSIX termios transport |
-| src/server.c | Bounded single-client HTTP server, explicit asset routing, local boundary checks and browser launch |
-| src/main.c | CLI parsing, file loading, job export and command dispatch |
-| web/index.html | Semantic tool panels, navigation, inputs, paper preview and accessible labels |
-| web/style.css | Responsive rail/workbench/paper layout and visual tokens |
-| web/app.js | EN/PT-BR text, canvas rendering, dithering, file import, pointer drawing, calculations, exports and session state |
-| web/icon.svg | Original app icon |
-| cmake/EmbedWeb.cmake | Converts local assets to generated C arrays at build time |
-| tests/test_core.c | Deterministic encoding and validation contracts, active in Release builds |
-| tests/test_integration.py | Optional process/HTTP/CLI tests and virtual serial test on POSIX |
-| packaging/ | Desktop entry, AppImage AppRun, macOS .app metadata/launcher and package scripts |
-| .github/workflows/build.yml | Native build/test/package matrix and tagged preview releases |
-| tools/checksums.py | Build-time SHA-256 package manifest generator |
-| docs/ | English, Portuguese and screenshot documentation |
+| `include/bematech.h`, `src/bematech.c` | Public byte-buffer API, limits, UTF-8/CP850, wrapping, PBM P4 and 24-dot ESC-star encoding |
+| `include/native.h` | Native app, response, JSON, device, conversion and diagnostics contracts |
+| `src/main.c` | CLI parsing, input/output files, server launch |
+| `src/app.c` | JSON state, atomic configuration writes, validation, API dispatch, calibration, jobs, calculator history and CSV |
+| `src/device.c` | Device discovery, Win32 COM and RAW spooler, POSIX termios, Linux USB printer-class, CUPS RAW queue |
+| `src/server.c` | Single-client loopback HTTP, Host/Origin/header boundaries, embedded assets, browser launch |
+| `src/documents.c` | Private temporary document conversion using Poppler/LibreOffice, page extraction/rasterization and cleanup |
+| `src/process.c` | Native argument-based subprocess execution and converter timeouts |
+| `src/diagnostic.c` | Windows/Linux/macOS CPU, RAM, disk, OS and uptime |
+| `third_party/cjson/` | Vendored cJSON and MIT license |
+| `web/index.html`, `styles.css`, `design.css` | Original Windows 98 shell, responsive workspace and paper preview |
+| `web/app.js`, `patch.js`, `utilities.js` | Original core tools, previews, tests, calibration and interactions |
+| `web/editor-v2.js`, `photo-file-v2.js`, `draw-v1.js` | Advanced editor, photo/document handling and drawing |
+| `web/calculator-3d.js`, `model-3d.js`, `server-diagnostic.js` | Complete calculator, software-rendered mesh viewer and printable diagnostics |
+| `web/local-bridge.js` | Native API adapter, browser simulation, text rasterization and exports |
+| `web/local-documents.js`, `pdf*.mjs` | Browser-only PDF/Office adapter; PDF.js license is included |
+| `web/local-settings.js`, `local-settings.css` | Connection dialog, serial configuration, device list and export controls |
+| `web/i18n.js` | English/PT-BR UI translation, including dynamically created controls |
+| `cmake/EmbedWeb.cmake` | Embeds all web assets into the native executable |
+| `tests/` | C byte contracts, HTTP/CLI/persistence tests, virtual serial and original mesh fixture |
+| `packaging/`, `.github/workflows/build.yml`, `tools/checksums.py` | Native packages, four-platform CI and SHA-256 manifests |
 
-The engine is a CMake static library named bematech. The executable links it
-with transport and server code. The generated web_assets.h remains in build/.
-Changing web assets triggers regeneration and relinking.
+## State and configuration
 
-## CLI configuration
+First launch defaults to simulation. The saved connection is restored at next
+launch; no port is opened merely by restoring it. Save/test or print opens it.
+`--device` overrides the restored transport with serial for the current process.
+Explicit CLI overrides affect server settings; later saves persist current state.
+Standalone `text`/`image` CLI commands use their supplied options, not the profile.
 
-There is no configuration file, database, environment-variable parser or
-background system service. Supply options on each launch. Command names:
-serve (default), text FILE, image FILE.
+| OS | Default profile |
+| --- | --- |
+| Windows | `%APPDATA%/Bematech-Printer/settings.json` |
+| macOS | `~/Library/Application Support/Bematech-Printer/settings.json` |
+| Linux | `$XDG_CONFIG_HOME/bematech-printer/settings.json`, otherwise `~/.config/bematech-printer/settings.json` |
 
-| Option | Default | Validation / behavior |
+`--config FILE` chooses another profile. The JSON contains `settings`,
+`connection`, custom `printers`, the latest 100 `quotes` and `jobs`, and a job
+`counter`. Writes use a temporary file and replace the target; POSIX files use
+mode 0600. Invalid profiles cause startup to fail instead of silently losing data.
+Browser-only simulation stores settings and history in localStorage. Document
+content, drawings, photos and meshes are not automatically persisted.
+
+| Setting | Default | Range |
 | --- | --- | --- |
-| --device PORT | absent | Absent means simulation for serve; required for CLI printing unless --output is supplied |
-| --output FILE | absent | CLI export; takes precedence over a supplied device; invalid for serve |
-| --port N | 8421 | 1024–65535, IPv4 loopback only |
-| --columns N | 48 | 20–120 characters per plain-text line |
-| --dots N | 576 | 320–832 usable head pixels |
-| --spacing N | 17 | 1–60, ESC 3 band spacing |
-| --feed N | 3 | 0–20 trailing newlines |
-| --no-cut | false | Disable the final ESC w 00 command |
-| --no-open | false | Do not launch a browser |
-| --help | — | Help without opening files/devices |
-| --version | — | Application version |
+| `cols_a` / `cols_b` | 48 / 64 | 20–80 / 30–120 |
+| `dots` / `image_width` | 576 / 576 | 320–832 / 8–832; image width ≤ dots |
+| `line_spacing` | 17 | 1–60 |
+| `default_feed` | 3 | 0–20 |
+| `auto_cut`, `italic`, `raster_fallback` | 1 | 0/1 |
+| `condensed_esc` | 0 | 0/1 |
 
-All options are parsed before I/O. CLI exit codes: 0 success, 1 I/O/encoding
-failure, 2 invalid command-line arguments. Browser settings live only for the
-page session. Native printer options are read through /api/info and cannot be
-changed remotely through the web API.
+Connection: `transport` is `simulation`, `serial`, `usb` or `system`; `device`
+is a port or queue. Serial settings: baud 1200/2400/4800/9600/19200/38400/57600/
+115200, 7/8 data bits, none/even/odd parity, 1/2 stop bits. Defaults: 9600 8N1.
+USB CDC uses serial. Direct printer-class USB uses `/dev/usb/lpN` on Linux;
+Windows uses its RAW spooler; macOS uses a configured CUPS RAW queue (`system`).
+System queues require OS printing tools/services. No libusb bulk driver is included.
 
-## Public C API
+## CLI
 
-- bp_defaults(): conservative defaults.
-- bp_append() / bp_free(): own and release a bounded dynamic byte buffer.
-- bp_text(): UTF-8 → CP850, safe control-character handling, wrapping and finish.
-- bp_bitmap(): row-packed 1-bit pixels → ESC-star bands.
-- bp_pbm(): strict binary P4 parsing, including header comments.
-- bp_send(): complete device write and drain, with error text.
-- bp_serve(): starts the local app server.
+`bematech-printer [serve|text FILE|image FILE] [options]`
 
-Encoding functions return 0 or -1. A failed encode may leave partial bytes in
-the output buffer; callers must discard them and call bp_free(). Input text
-must be NUL-terminated; bitmap functions take explicit byte lengths. Never
-send a partial output after an error.
-
-## Printer protocol
-
-| Action | Bytes |
+| Option | Default / behavior |
 | --- | --- |
-| Initialize | ESC @ |
-| Select CP850 | ESC t 02 |
-| Graphic spacing | ESC 3 n |
-| 24-dot graphic band | ESC * 33 nL nH, then three bytes per column |
-| Restore text line spacing | ESC 2 |
-| Full cut | ESC w 00 |
+| `--device PORT` | Explicit serial override; needed for CLI printing unless exporting |
+| `--config FILE` | Native server profile path |
+| `--output FILE` | CLI ESC/Bema export; takes precedence over device; invalid for serve |
+| `--port N` | 8421; 1024–65535, IPv4 loopback |
+| `--columns N` | 48; 20–80 |
+| `--dots N` | 576; 320–832 |
+| `--spacing N` | 17; 1–60 |
+| `--feed N` | 3; 0–20 |
+| `--no-cut` | Disable final guillotine command |
+| `--no-open` | Keep browser launch disabled |
+| `--help`, `--version` | Print information and exit |
 
-Input P4 rows have ceil(width/8) bytes. Bits are MSB-first and row-aligned;
-padding bits at the end of a row are ignored. The encoder transposes these rows
-into vertical groups of 24 dots. The final band is zero-padded.
-
-Windows uses CreateFileA, DCB, 9600 baud / 8N1, no software/hardware flow
-control, a 15-second write timeout, WriteFile and FlushFileBuffers.
-POSIX uses termios, 9600 baud / 8N1, raw mode, no HUPCL and tcdrain before close.
-The transport adds a short pause after draining. USB CDC baud settings may be
-virtual, but match the implemented defaults when testing your device.
+Exit codes: 0 success, 1 I/O/encoding failure, 2 invalid CLI arguments.
 
 ## HTTP API
 
-Bind address is always 127.0.0.1. Requests require Host equal to the printed
-127.0.0.1:PORT. POSTs need Content-Length and X-Bematech-Client: 1. When Origin
-is supplied, it must equal http://127.0.0.1:PORT. No CORS permission or
-authentication/account system is provided.
+All routes use the exact printed `http://127.0.0.1:PORT` Host. POSTs require
+`Content-Length` and `X-Bematech-Client: 1`; supplied Origin must match. No
+accounts, CORS permission or chunked request bodies. JSON unless stated otherwise.
 
-| Method/path | Body | Success |
-| --- | --- | --- |
-| GET /api/info | none | 200 JSON: version, mode, dots, columns, spacing, feed, cut |
-| GET / or explicit asset | none | 200 embedded local UI |
-| POST /api/print | Raw binary PBM P4 | 202 JSON: status (simulated/sent), bytes |
-| POST /api/text | Raw UTF-8 text, no NUL | 202 JSON: status and bytes |
+| Method/path | Contract |
+| --- | --- |
+| GET `/api/info` | Version, transport/mode, dots, columns, spacing, feed, cut |
+| GET `/api/settings` | Current calibration/settings object |
+| POST `/api/settings` | Merge validated integer settings; returns `{ok,settings}` |
+| GET/POST `/api/connection` | Read/replace connection object; GET also returns config path |
+| GET `/api/devices` | `{devices:[{transport,device,label}]}` |
+| POST `/api/connection/test` | Open current connection without printing; `{ok,state}` |
+| GET `/api/status` | Configured transport/device/state, not live paper/cover sensors |
+| GET `/api/jobs` | Latest 20 metadata entries, newest first |
+| GET `/api/server-diagnostic` | Local OS, uptime, CPU, RAM, disk |
+| GET/POST `/api/calculator/printers` | Built-ins plus custom printers; POST: name, power_w, max_power_w, note |
+| POST `/api/calculator/quotes` | Save `{data,result}` calculation snapshot |
+| GET `/api/calculator/history` | Latest 100 quotes, newest first |
+| GET `/api/calculator/history.csv` | UTF-8 BOM, semicolon CSV, formula-prefix escaping |
+| POST `/api/document/read` | `{filename,data_base64,mode:"text"|"raster"}` → `{filename,mode,pages}` |
+| POST `/api/print/document`, `/api/print/list-rich` | Native contract: `{pages:[bitmap],gap,feed,cut}`; browser adapter converts rich HTML/list to pages |
+| POST `/api/print/image` | One bitmap, feed/cut |
+| POST `/api/print/images` | `{images:[bitmap],gap,feed,cut}` |
+| POST `/api/print/text` | `{text,feed,cut}` using CP850 |
+| POST `/api/print/raw` | `{data_base64}` ESC/Bema bytes |
+| POST `/api/print/test-page`, `/api/print/probe` | Text/style test or small graphic test |
+| POST `/api/calibration/print` | `{kind,candidates}` for normal/condensed columns, width or spacing |
+| POST `/api/calibration/apply` | `{kind,value}`; validated persistent setting update |
+| POST `/api/feed`, `/api/cut` | `{lines:1..30}` or empty object |
+| POST `/api/print` | Raw binary PBM P4 compatibility endpoint |
+| POST `/api/text` | Raw UTF-8 compatibility endpoint |
 
-~~~sh
+Bitmap: `width`, `height`, `data_base64`, `packing:"row"|"continuous"` (default
+continuous). One means black; row form is MSB-first with ceil(width/8) bytes per
+row; continuous form packs all pixels without row padding. Small bitmaps are
+centered within configured dots. Printing returns HTTP 202 `{id,status,bytes}`;
+status is `simulated` or `sent`. Delivered bytes do not certify physical output.
+
+```sh
 curl http://127.0.0.1:8421/api/info
-curl --fail http://127.0.0.1:8421/api/print \
-  -H 'X-Bematech-Client: 1' \
-  -H 'Content-Type: image/x-portable-bitmap' \
-  --data-binary @receipt.pbm
-~~~
+curl --fail http://127.0.0.1:8421/api/print/text \
+  -H 'X-Bematech-Client: 1' -H 'Content-Type: application/json' \
+  --data '{"text":"Hello printer","feed":3,"cut":true}'
+```
 
-Error codes: 400 malformed/oversized data, 403 local boundary refusal,
-404 unknown route, 500 memory/serial failure. Serial errors are detailed in the
-native process stderr, not echoed with arbitrary device paths into the page.
-Connections are closed after each response; chunked bodies are rejected.
+## Encoding and limits
 
-## Bounds and behavior
+C engine: `bp_defaults`, `bp_append`/`bp_free`, `bp_text`, `bp_bitmap`, `bp_pbm`.
+Transport: `bp_send`; server: `bp_serve`. Encoders return 0/-1; discard partial
+buffers after errors. Device commands: ESC @, ESC t 02 (CP850), ESC 3 n,
+ESC * 33 nL nH with three bytes per column, ESC 2, ESC w 00 (cut).
 
-- HTTP: 16 KiB headers, 2 MiB complete request allocation, 10-second socket
-  receive/send timeouts. One connection is served at a time.
-- Encoded jobs: at most 4 MiB. Bitmap: width 1..configured dots, height 1..6000.
-- CLI text: rejects ESC and other device control characters (except newline,
-  CR normalization and tab expansion), invalid UTF-8 and non-CP850 Unicode.
-- Browser rendering: 6,000-row receipt limit, smaller image processing limits.
-- Browser history: process-page memory only; no localStorage or upload storage.
-- Serial jobs run synchronously, so bytes from HTTP jobs do not interleave.
-  Another process can still compete for a device; use one app per printer.
+HTTP headers ≤16 KiB; full request ≤16 MiB; encoded job ≤4 MiB; bitmap height
+≤6000, width ≤dots; ≤100 pages/job; rich browser text ≤2000 rows. Converter input
+≤10 MB, PDF text ≤100 pages, raster ≤50 pages. Converter timeouts bound external
+processes; working directories are removed after conversion. Jobs are synchronous
+inside this app. Do not let other processes write to the same printer concurrently.
 
-Host/Origin checks reduce cross-site browser misuse but do not protect against
-malicious local software. Users adding remote access must design their own
-authorization, transport security and concurrency model.
-
-## Upstream references
-
-- [Microsoft serial handles](https://learn.microsoft.com/en-us/windows/win32/devio/communications-resource-handles)
-- [Microsoft serial resource settings](https://learn.microsoft.com/en-us/windows/win32/devio/modification-of-communications-resource-settings)
-- [AppImage AppDir specification](https://docs.appimage.org/reference/appdir.html)
+The CLI rejects printer control characters and invalid/non-CP850 UTF-8. Browser
+rich text becomes raster, supporting installed-font glyphs. Windows uses native
+COM or RAW spooler APIs; POSIX uses termios or `lp -o raw`. Discovery never prints.
+Loopback protections do not isolate the app from other programs on the same PC.

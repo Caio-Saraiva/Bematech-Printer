@@ -1,137 +1,144 @@
 # Arquitetura, configuração e API
 
-[English](../en/TECHNICAL.md) · [Português](TECNICO.md)
+[English](../en/TECHNICAL.md)
 
 ## Fluxo
 
-~~~text
-Estúdio HTML/CSS/JS → canvas → limiar/pontilhamento → PBM P4
-  → POST /api/print no loopback
-  → parser C → faixas ESC * de 24 pontos → serial
-~~~
+```text
+Interface Windows 98 → ponte local → páginas monocromáticas → HTTP loopback
+→ aplicação C → codificador ESC/Bema → transporte escolhido
+```
 
-A CLI usa o motor diretamente: text converte UTF-8/CP850, image usa o parser
-P4. --output grava bytes sem abrir dispositivo. A demo hospedada não possui
-processo C nem ponte de impressão.
+O executável embute a interface. Toda comunicação com dispositivo e persistência
+é feita pelo backend C. O navegador processa fotos, desenhos, documentos e
+modelos 3D para a prévia. A demo hospedada força simulação no navegador.
 
-## Módulos
+## Mapa de módulos
 
 | Arquivo | Função |
 | --- | --- |
-| include/bematech.h | API pública C, opções, buffers, versão e limite de trabalho |
-| src/bematech.c | Buffer limitado, validação, UTF-8 estrito, tabela CP850, quebra de texto, parser P4 e comandos ESC/Bema |
-| src/transport.c | Serial Win32 COM ou POSIX termios |
-| src/server.c | HTTP síncrono limitado, assets explícitos, verificação local e abertura do navegador |
-| src/main.c | CLI, leitura de arquivo, exportação e despacho |
-| web/index.html | Painéis, navegação, controles e prévia semântica |
-| web/style.css | Aparência e comportamento responsivo |
-| web/app.js | Traduções, canvas, imagens, desenho, fórmulas, exportação e estado da sessão |
-| web/icon.svg | Ícone original |
-| cmake/EmbedWeb.cmake | Embute assets em arrays C durante a compilação |
-| tests/test_core.c | Contratos de bytes e rejeição de entradas |
-| tests/test_integration.py | Processo, HTTP, CLI e serial virtual POSIX |
-| packaging/ | Lançadores, desktop entry, AppImage e metadados macOS |
-| .github/workflows/build.yml | Matriz nativa e releases |
-| tools/checksums.py | Manifesto SHA-256 de pacotes |
-| docs/ | Documentação em inglês e português e capturas reais |
+| `include/bematech.h`, `src/bematech.c` | API C, UTF-8/CP850, PBM P4 e faixas ESC/Bema de 24 pontos |
+| `include/native.h` | Contratos do backend, JSON, dispositivos, diagnóstico e conversão |
+| `src/main.c` | CLI, arquivos e inicialização do servidor |
+| `src/app.c` | Rotas, validação, configurações, histórico, calibração e calculadora |
+| `src/device.c` | Descoberta, serial Win32/POSIX, USB da classe de impressão e fila RAW |
+| `src/server.c` | HTTP local, verificação Host/Origin, assets embutidos e abertura do navegador |
+| `src/documents.c`, `src/process.c` | PDF/Office via Poppler/LibreOffice, temporários privados e limites de execução |
+| `src/diagnostic.c` | CPU, RAM, disco, sistema e uptime em Windows/Linux/macOS |
+| `third_party/cjson/` | cJSON incorporado, licença MIT |
+| `web/index.html`, `styles.css`, `design.css` | Janela Windows 98, abas responsivas e prévia de papel |
+| `web/app.js`, `patch.js`, `utilities.js` | Utilitários originais, testes, calibração e prévias |
+| `web/editor-v2.js`, `photo-file-v2.js`, `draw-v1.js` | Editor, arquivos/foto e desenho avançados |
+| `web/calculator-3d.js`, `model-3d.js`, `server-diagnostic.js` | Orçamentos, modelos 3D e relatório do computador |
+| `web/local-bridge.js`, `local-documents.js`, `pdf*.mjs` | Adaptador nativo/simulação, importação web e PDF.js |
+| `web/local-settings.js`, `i18n.js` | Conexão USB/Serial, exportação e tradução EN/PT-BR |
+| `cmake/EmbedWeb.cmake` | Embute os assets em arrays C |
+| `tests/`, `packaging/`, `.github/workflows/build.yml` | Testes, pacotes e CI |
 
-A biblioteca CMake bematech contém o motor. O executável adiciona servidor e
-transporte. web_assets.h é gerado dentro de build/; alterar web/ provoca
-regeneração e relink.
+## Configuração persistente
 
-## Todas as opções CLI
+A primeira execução começa em simulação. O programa restaura a conexão salva
+sem abrir o dispositivo; teste ou impressão faz a abertura. `--device PORTA`
+sobrepõe a conexão por serial naquela execução. Comandos CLI `text` e `image`
+usam seus argumentos, não as opções do perfil.
 
-Não há arquivo de configuração, banco, parser de ambiente ou serviço do sistema.
-Os comandos são serve (padrão), text ARQUIVO e image ARQUIVO.
-
-| Opção | Padrão | Limite e efeito |
-| --- | --- | --- |
-| --device PORTA | ausente | Sem porta, serve simula; CLI exige porta ou --output |
-| --output ARQUIVO | ausente | Exporta bytes CLI, prevalece sobre dispositivo; não vale em serve |
-| --port N | 8421 | 1024–65535, somente IPv4 loopback |
-| --columns N | 48 | 20–120 caracteres por linha de texto simples |
-| --dots N | 576 | 320–832 pontos úteis |
-| --spacing N | 17 | 1–60, espaçamento ESC 3 |
-| --feed N | 3 | 0–20 quebras de linha finais |
-| --no-cut | desligado | Desativa ESC w 00 |
-| --no-open | desligado | Não abre navegador |
-| --help | — | Mostra ajuda sem abrir dispositivo |
-| --version | — | Mostra versão |
-
-Os argumentos são validados antes de I/O. Código de saída 0: sucesso; 1:
-falha de I/O/codificação; 2: argumentos inválidos. As opções nativas são
-consultadas em /api/info e não podem ser alteradas por API.
-
-## API C
-
-bp_defaults fornece padrões; bp_append e bp_free gerenciam buffers limitados.
-bp_text converte texto, bp_bitmap transpõe pixels, bp_pbm interpreta P4,
-bp_send escreve/drena a serial e bp_serve inicia o app.
-
-Os codificadores retornam 0 ou -1. Falhas podem deixar bytes parciais no buffer:
-descarte-os com bp_free e não os envie. Texto deve terminar em NUL; bitmaps
-usam tamanho explícito.
-
-## Protocolo de impressão
-
-| Operação | Comando |
+| Sistema | Arquivo padrão |
 | --- | --- |
-| Inicializar | ESC @ |
-| CP850 | ESC t 02 |
-| Espaçamento gráfico | ESC 3 n |
-| Faixa de 24 pontos | ESC * 33 nL nH e três bytes por coluna |
-| Restaurar espaçamento de texto | ESC 2 |
-| Corte total | ESC w 00 |
+| Windows | `%APPDATA%/Bematech-Printer/settings.json` |
+| macOS | `~/Library/Application Support/Bematech-Printer/settings.json` |
+| Linux | `$XDG_CONFIG_HOME/bematech-printer/settings.json` ou `~/.config/bematech-printer/settings.json` |
 
-P4 possui ceil(largura/8) bytes por linha, MSB primeiro, 1=preto. Os bits finais
-de preenchimento são ignorados. O motor transpõe para colunas de 24 pixels e
-preenche a última faixa com zeros.
+`--config ARQUIVO` escolhe outro perfil. O JSON tem `settings`, `connection`,
+`printers` personalizados, últimos 100 `quotes` e `jobs`, e contador. A gravação
+usa arquivo temporário com substituição; no POSIX, permissão 0600. Perfil inválido
+impede a inicialização para evitar perda silenciosa. A demo guarda ajustes e
+histórico no localStorage; texto, foto, desenho e malha não são salvos automaticamente.
 
-Windows usa CreateFileA, DCB, 9600/8N1, sem controle de fluxo, timeout de escrita
-de 15 segundos, WriteFile e FlushFileBuffers. POSIX usa termios em modo bruto,
-9600/8N1, sem HUPCL e tcdrain antes de fechar. Há uma pequena pausa após drenar.
+| Ajuste | Padrão | Limites |
+| --- | --- | --- |
+| `cols_a`, `cols_b` | 48, 64 | 20–80, 30–120 |
+| `dots`, `image_width` | 576, 576 | 320–832, 8–832; largura ≤ dots |
+| `line_spacing` | 17 | 1–60 |
+| `default_feed` | 3 | 0–20 |
+| `auto_cut`, `italic`, `raster_fallback` | 1 | 0/1 |
+| `condensed_esc` | 0 | 0/1 |
+
+A conexão aceita `simulation`, `serial`, `usb` e `system`. Serial usa velocidades
+1200/2400/4800/9600/19200/38400/57600/115200, 7/8 bits, paridade nenhuma/par/
+ímpar e 1/2 bits de parada. Padrão: 9600 8N1. USB CDC usa serial; `/dev/usb/lpN`
+serve para USB da classe de impressão no Linux; Windows/macOS podem usar fila RAW
+instalada. Não há driver libusb bulk genérico.
+
+## CLI
+
+`bematech-printer [serve|text ARQUIVO|image ARQUIVO] [opções]`
+
+| Opção | Efeito |
+| --- | --- |
+| `--device PORTA` | Seleção serial explícita; CLI exige dispositivo ou exportação |
+| `--config ARQUIVO` | Perfil do servidor local |
+| `--output ARQUIVO` | Exporta bytes ESC/Bema em vez de imprimir |
+| `--port N` | 8421 por padrão; 1024–65535, somente IPv4 loopback |
+| `--columns N` | 48 por padrão; 20–80 |
+| `--dots N` | 576 por padrão; 320–832 |
+| `--spacing N` | 17 por padrão; 1–60 |
+| `--feed N` | 3 por padrão; 0–20 |
+| `--no-cut`, `--no-open` | Desativa corte ou abertura do navegador |
+| `--help`, `--version` | Ajuda e versão |
+
+Saídas: 0 sucesso, 1 I/O/codificação, 2 argumentos inválidos.
 
 ## API HTTP
 
-Escuta sempre em 127.0.0.1. Host deve corresponder a 127.0.0.1:PORTA.
-POST exige Content-Length e X-Bematech-Client: 1. Se Origin existir, deve ser
-http://127.0.0.1:PORTA. Não há CORS, contas ou autenticação.
+Todas as rotas usam Host `127.0.0.1:PORTA`. POST precisa de Content-Length e
+`X-Bematech-Client: 1`; Origin, quando enviado, deve corresponder ao endereço
+local. Sem CORS, contas ou corpo chunked. Respostas JSON, salvo CSV.
 
-| Método/rota | Entrada | Saída de sucesso |
-| --- | --- | --- |
-| GET /api/info | nenhuma | JSON 200 com version, mode, dots, columns, spacing, feed, cut |
-| GET / e assets explícitos | nenhuma | Interface embutida |
-| POST /api/print | PBM P4 binário | JSON 202 com status simulated/sent e bytes |
-| POST /api/text | UTF-8 sem NUL | JSON 202 com status e bytes |
+| Método/rota | Corpo ou retorno |
+| --- | --- |
+| GET `/api/info`, `/api/status` | Versão/modo/ajustes básicos; dispositivo configurado e estado |
+| GET/POST `/api/settings` | Lê ou mescla ajustes inteiros validados; POST retorna `{ok,settings}` |
+| GET/POST `/api/connection` | Lê ou substitui conexão; GET informa caminho do perfil |
+| GET `/api/devices` | Lista `{transport,device,label}`; sem imprimir |
+| POST `/api/connection/test` | Abre a conexão atual sem imprimir |
+| GET `/api/jobs` | Últimos 20 trabalhos, mais recentes primeiro |
+| GET `/api/server-diagnostic` | SO, uptime, CPU, RAM e disco |
+| GET/POST `/api/calculator/printers` | Impressoras 3D embutidas/personalizadas |
+| POST `/api/calculator/quotes` | Salva `{data,result}` do orçamento |
+| GET `/api/calculator/history`, `/api/calculator/history.csv` | Últimos 100 orçamentos; CSV UTF-8 com proteção contra fórmulas |
+| POST `/api/document/read` | `{filename,data_base64,mode:"text"|"raster"}` → páginas |
+| POST `/api/print/document`, `/api/print/list-rich` | Páginas bitmap; o adaptador web converte HTML rico/lista |
+| POST `/api/print/image`, `/api/print/images` | Uma ou várias imagens, avanço e corte |
+| POST `/api/print/text`, `/api/print/raw` | Texto CP850 ou bytes ESC/Bema em Base64 |
+| POST `/api/print/test-page`, `/api/print/probe` | Página de teste e prova gráfica |
+| POST `/api/calibration/print`, `/api/calibration/apply` | Tira candidata e aplicação do valor medido |
+| POST `/api/feed`, `/api/cut` | Avanço/corte |
+| POST `/api/print`, `/api/text` | Compatibilidade: PBM P4 ou UTF-8 bruto |
 
-~~~sh
+Bitmap JSON: `width`, `height`, `data_base64`, `packing:"row"|"continuous"`.
+No formato row há `ceil(width/8)` bytes por linha, bits mais significativos
+primeiro; continuous não preenche o fim da linha. Pixels pretos valem 1.
+Imagens menores são centralizadas nos `dots` configurados. A impressão retorna
+HTTP 202 `{id,status,bytes}`; `sent` indica envio de bytes, não garante papel.
+
+```sh
 curl http://127.0.0.1:8421/api/info
-curl --fail http://127.0.0.1:8421/api/print \
-  -H 'X-Bematech-Client: 1' \
-  -H 'Content-Type: image/x-portable-bitmap' \
-  --data-binary @recibo.pbm
-~~~
+curl --fail http://127.0.0.1:8421/api/print/text \
+  -H 'X-Bematech-Client: 1' -H 'Content-Type: application/json' \
+  --data '{"text":"Olá","feed":3,"cut":true}'
+```
 
-400 significa entrada inválida; 403, recusa da fronteira local; 404, rota
-inexistente; 500, memória/serial. Detalhes da serial aparecem no stderr do
-executável. O servidor fecha cada conexão e rejeita corpo chunked.
+## Protocolo e limites
 
-## Limites e persistência
+`bp_defaults`, `bp_append`/`bp_free`, `bp_text`, `bp_bitmap` e `bp_pbm` compõem
+o motor público. Bytes: ESC @, ESC t 02 (CP850), ESC 3 n, ESC * 33 nL nH
+(com três bytes por coluna), ESC 2 e ESC w 00 (corte). Erro do codificador
+exige descarte do buffer parcial.
 
-- HTTP: 16 KiB de cabeçalhos, alocação de até 2 MiB, timeout de socket de
-  10 segundos, uma conexão por vez.
-- Trabalho codificado: 4 MiB. Bitmap: largura de 1 até dots e altura 1–6000.
-- Texto CLI: rejeita ESC, controles de dispositivo, UTF-8 inválido e caracteres
-  fora de CP850. Aceita newline, normalização de CR e expansão de tab.
-- Navegador: histórico, conteúdos e opções ficam somente em memória da página.
-- Trabalhos HTTP são síncronos e não intercalam bytes; outros processos ainda
-  podem disputar o dispositivo. Use um app por impressora.
-
-Host/Origin limitam uso indevido pelo navegador, mas não protegem contra
-software malicioso na própria máquina. Quem adicionar acesso remoto deve
-implementar autorização, segurança de transporte e concorrência.
-
-Referências:
-[serial Win32](https://learn.microsoft.com/en-us/windows/win32/devio/communications-resource-handles),
-[configuração Win32](https://learn.microsoft.com/en-us/windows/win32/devio/modification-of-communications-resource-settings),
-[AppDir](https://docs.appimage.org/reference/appdir.html).
+Cabeçalhos HTTP até 16 KiB; requisição total até 16 MiB; trabalho codificado
+até 4 MiB; bitmap até 6000 linhas e largura ≤ `dots`; até 100 páginas por
+trabalho. Arquivos PDF/Office até 10 MB, 100 páginas em texto ou 50 em raster.
+O subprocesso de conversão tem timeout e os temporários são apagados.
+Impressões deste processo são sequenciais. Outro processo concorrente ainda
+pode disputar o mesmo dispositivo. A proteção loopback não bloqueia programas
+maliciosos executados neste computador.

@@ -1,26 +1,23 @@
-# 0.1.1 — initial preview, packaging update
+# 0.2.0 — original Windows 98 application restored
 
-Windows uses the static MSVC runtime, so a separate Visual C++ redistributable
-is not needed. The release-wide SHA256SUMS manifest matches the final,
-platform-prefixed download filenames. Version 0.1.0 was the initial CI preview.
+Restores the original visual language and utilities, including the complete
+3D model viewer and printing flow. Supersedes the simplified 0.1 redesign.
 
-Includes a C99 printer engine, Win32/POSIX serial adapters, embedded local
-web studio, CLI export/print, English and Brazilian Portuguese UI, six tools,
-PNG/PBM/ESC-Bema export, local-only HTTP boundary checks, native packaging and
-documented simulation.
+- Rich editor/list, PDF/Office workflows, full photo/drawing tools and complete
+  cost calculator.
+- Original STL/OBJ/3MF/ASCII-FBX viewer: all materials, camera/UP/projection,
+  lighting, ground, orientation cube and thermal printing.
+- C99 backend with persistent profiles, USB/Serial/RAW queue configuration,
+  discovery, diagnostics, calibration, history and document conversion.
+- No users, login, sessions, passwords or passkeys.
+- Same Windows 98 UI locally and in the simulated hosted demo.
+- English-first UI, PT-BR, updated guides and real screenshots.
 
-This is a preview release. Native CI checks compile/test/package behavior.
-Physical printing has not been certified across all operating systems in this
-release. Test a short receipt on your own MP-4200 in ESC/Bema mode.
+Native PDF/Office helpers are optional installations. Browser Office raster
+uses extracted text; binary DOC/PPT/XLS require native helpers or PDF export.
+See FEATURE_PARITY.md.
 
-## Current limits
-
-- Desktop apps use the default browser as their graphical interface.
-- Windows packages are not certificate-signed; macOS packages are not notarized.
-- This is not an ESC/POS driver, fiscal document issuer or generic USB printer spooler.
-- No PDF/Office import, 3D model viewer, rich HTML editor or cloud history.
-- No device auto-detection or live paper/cover sensor polling.
-- Native printer settings are command-line options; restart to change them.
-- No authentication or remote-access deployment mode.
-- Content and session history reset on browser reload.
-- CLI text supports CP850; other characters should use the web bitmap route.
+Builds/tests/packages target Windows x86-64, Linux x86-64, macOS Intel and Apple
+silicon. Physical output is not certified by CI. Windows packages are unsigned;
+macOS uses an ad-hoc signature, not notarization. The desktop app uses a browser
+as its graphical UI. MSVC runtime is statically linked.

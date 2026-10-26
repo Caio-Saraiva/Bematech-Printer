@@ -1,64 +1,57 @@
 # Bematech Printer
 
-**Um pouco de papel. Infinitas possibilidades.**
+**A aplicação Windows 98 original, com backend nativo em C99.**
 
-Motor C99 e estúdio web local para a **Bematech MP-4200 TH**, com apps para
-Windows, Linux e macOS. Inglês é o idioma principal; a interface também possui
-português brasileiro.
+Mantém editor/listas ricos, arquivos/PDF/Office, foto, desenho completo,
+calculadora completa, **visualização e impressão 3D**, diagnóstico, testes e
+calibração. Sem autenticação. USB/Serial é configurado na própria interface.
 
 [English](README.md) ·
-[Experimentar a demo](https://bematech-printer-demo.lilbigcheetos.chatgpt.site) ·
+[Demo](https://bematech-printer-demo.lilbigcheetos.chatgpt.site) ·
 [Downloads](https://github.com/Caio-Saraiva/Bematech-Printer/releases)
 
-![Estúdio de texto em português](docs/screenshots/editor-pt-BR.png)
+![Aplicação original](docs/screenshots/editor-pt-BR.png)
+![Modelo 3D](docs/screenshots/model-3d-en.png)
 
-## Como começar
+## Começar
 
-Baixe a versão da sua plataforma em Releases e abra o app. O executável C
-inicia um servidor em `http://127.0.0.1:8421` e abre a interface no navegador.
-O modo inicial é simulação. Para usar uma impressora real, escolha a serial:
+1. Baixe e abra o pacote da sua plataforma.
+2. Em **Conexão**, experimente a simulação.
+3. Escolha Serial / USB CDC, USB ou uma fila RAW instalada.
+4. Selecione ou informe a porta e ajuste os parâmetros seriais.
+5. Salve, teste a conexão e imprima uma folha curta de teste.
+
+A MP-4200 normalmente aparece como USB CDC: escolha a COM ou /dev/tty ou
+/dev/cu correspondente. USB da classe de impressão usa /dev/usb/lpN no Linux
+ou uma fila RAW instalada no Windows/macOS. O dialeto é **ESC/Bema**.
 
 ~~~sh
-# Linux
+bematech-printer
 bematech-printer serve --device /dev/ttyACM0
-
-# macOS: substitua pela porta real
-bematech-printer serve --device /dev/cu.usbmodem1234
-
-# Windows PowerShell
-.\bematech-printer.exe serve --device COM3
+bematech-printer serve --config /caminho/settings.json --port 8425
 ~~~
 
-O app não exige Python, Node, conta ou conexão com a nuvem. A demo hospedada
-processa tudo no navegador e apenas simula a impressão.
+O executável C abre a interface original no navegador em 127.0.0.1:8421.
+Python e Node não são dependências de execução. Auxiliares opcionais para
+PDF/Office estão documentados no guia.
 
-## Utilitários
-
-- Texto: editor, alinhamento, tamanho normal/grande, importação TXT/MD/CSV/LOG.
-- Listas: título, marcadores e recuo automático.
-- Imagem: PNG/JPEG/WebP, rotação, brilho, contraste e quatro modos de pontilhamento.
-- Desenho: mouse, caneta, toque, borracha, desfazer e limpar.
-- Calculadora 3D: material, perda, energia, trabalho/extras e margem sobre a venda.
-- Calibração: régua de largura e faixas gráficas para conferência no papel.
-- Exportação: PNG, PBM P4 e bytes ESC/Bema.
+A web local usa o mesmo executável e a mesma interface. A demo hospedada usa
+os mesmos utilitários e apenas simula a impressão. Wrapper e metadados de
+hospedagem ficam fora do repositório público.
 
 ## Documentação
 
 | Guia | Conteúdo |
 | --- | --- |
-| [Usuário](docs/pt-BR/GUIA_DO_USUARIO.md) | Instalação por sistema, uso de cada utilitário e solução de problemas |
-| [Técnico](docs/pt-BR/TECNICO.md) | Todos os módulos, opções CLI, protocolo, API e limites |
-| [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md) | Compilação, testes, pacotes e releases |
-| [Capturas](docs/SCREENSHOTS.md) | Imagens reais do aplicativo em três tamanhos |
-| [Notas da versão](docs/pt-BR/NOTAS_DA_VERSAO.md) | Compatibilidade e limitações da versão inicial |
+| [Usuário](docs/pt-BR/GUIA_DO_USUARIO.md) | Instalação, conexão e todos os utilitários |
+| [Técnico](docs/pt-BR/TECNICO.md) | Módulos C, ajustes, API e protocolo |
+| [Desenvolvimento](docs/pt-BR/DESENVOLVIMENTO.md) | Compilação, testes, pacotes e manutenção |
+| [Paridade](docs/FEATURE_PARITY.md) | Recursos preservados e diferenças por ambiente |
+| [Capturas](docs/SCREENSHOTS.md) | Telas reais, inclusive 3D e configuração |
+| [Notas](docs/pt-BR/NOTAS_DA_VERSAO.md) | Alterações e compatibilidade |
 
-~~~sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release --parallel
-ctest --test-dir build -C Release --output-on-failure
-~~~
+Configuração, impressoras 3D, orçamentos e trabalhos ficam no perfil local.
+A demo usa armazenamento do navegador. Não há usuários, senha ou passkeys.
+O serviço privado de produção permanece separado.
 
-O dialeto é **ESC/Bema proprietário**, não ESC/POS genérico. O app não possui
-autenticação: fica restrito ao loopback da máquina. Configuração, histórico e
-conteúdo ficam na memória; recarregar a página reinicia a sessão. O projeto é
-independente do serviço privado e usa licença MIT.
+Aplicação MIT, cJSON MIT e PDF.js Apache-2.0. Projeto independente da Bematech.

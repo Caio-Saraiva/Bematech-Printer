@@ -1,86 +1,81 @@
 # Bematech Printer
 
-**A little paper. Endless possibilities.**
+**The original Windows 98 printing application, with a native C99 backend.**
 
-A C99 printing engine and a local web studio for the **Bematech MP-4200 TH**.
-Write receipts, print lists, dither images, draw, estimate 3D print costs and
-generate calibration sheets. Runs on Windows, Linux and macOS. English first;
-Brazilian Portuguese is available throughout the interface and documentation.
+Rich text, rich lists, text/PDF/Office import, photo processing, advanced
+drawing, the complete 3D cost calculator, **3D model viewing and printing**,
+diagnostics and calibration are retained. No authentication is required.
+Configure USB/Serial/system RAW output from the Windows 98 connection dialog.
 
-[Try the browser playground](https://bematech-printer-demo.lilbigcheetos.chatgpt.site) ·
-[Downloads](https://github.com/Caio-Saraiva/Bematech-Printer/releases) ·
-[Português do Brasil](README.pt-BR.md)
+[Try the demo](https://bematech-printer-demo.lilbigcheetos.chatgpt.site) ·
+[Native downloads](https://github.com/Caio-Saraiva/Bematech-Printer/releases) ·
+[Português brasileiro](README.pt-BR.md)
 
-![Text studio on desktop](docs/screenshots/editor-en.png)
+![Windows 98 editor](docs/screenshots/editor-en.png)
+![3D model viewer and printing](docs/screenshots/model-3d-en.png)
 
-## Choose your way in
+## Versions
 
-| Experience | What you need | Printer access |
+| Experience | UI | Output |
 | --- | --- | --- |
-| Local desktop app | One native executable and a browser | Explicit serial port selected at startup |
-| Local web version | The same executable, or serve the static UI for preview/export | Native loopback bridge for actual printing |
-| Hosted playground | A browser | Simulation only; no hardware/API bridge |
+| Windows / Linux / macOS app | Original HTML/CSS/JS embedded in a native C executable | C ESC/Bema; Serial, USB printer class or installed RAW queue |
+| Local web | The same original interface served by the C app | Native loopback backend |
+| Hosted demo | The same interface and utilities | Simulated; no hardware or printer backend |
 
-Desktop packages launch the local studio in your default browser. The
-application engine and HTTP server are C; the embedded interface uses vanilla
-HTML, CSS and JavaScript. No Python, Node, account, cloud connection or runtime
-package installation is needed to use the native app.
+The app opens your browser at **http://127.0.0.1:8421**. Python and Node are not
+application runtime requirements. Optional native PDF/Office helpers are
+documented below. Hosting metadata and the demo wrapper stay outside this repo.
 
-## Quick start
+## First run
 
-Download the package for your platform from Releases. Launch the application;
-it starts in simulation, opens **http://127.0.0.1:8421** and never touches a
-printer until you explicitly select a device:
+1. Download and launch the package for your OS and CPU.
+2. Open **Connection**. Try simulation first.
+3. For physical output, choose **Serial / USB CDC**, **USB** or a
+   **system RAW queue**, then select or enter the device.
+4. Set serial baud rate, data bits, parity and stop bits if applicable.
+5. Save and test the connection, then print a short test sheet.
+
+The MP-4200 commonly presents as USB CDC: choose its COM, /dev/tty or /dev/cu
+serial port. USB printer-class output uses /dev/usb/lpN on Linux or an installed
+RAW queue on Windows/macOS. This driver targets **ESC/Bema**, not ESC/POS.
 
 ~~~sh
-# Linux
+bematech-printer
 bematech-printer serve --device /dev/ttyACM0
-
-# macOS — replace with the actual USB CDC port
-bematech-printer serve --device /dev/cu.usbmodem1234
-
-# Windows PowerShell
-.\bematech-printer.exe serve --device COM3
-~~~
-
-Print a file or generate bytes without the web interface:
-
-~~~sh
+bematech-printer serve --config /path/to/settings.json --port 8425
 bematech-printer text notes.txt --output receipt.bin
 bematech-printer image receipt.pbm --device /dev/ttyACM0 --no-cut
 ~~~
 
-**Important:** this driver targets proprietary **ESC/Bema**, not generic ESC/POS.
-The MP-4200 may present itself as a USB CDC serial device. Other command modes
-and printer models need their own compatibility testing.
+## Preserved utilities
 
-## Tools
-
-| Tool | Included behavior |
+| Tool | Features |
 | --- | --- |
-| Text studio | UTF-8 input, normal/large text, alignment, TXT/MD/CSV/LOG import and bitmap preview |
-| Lists & notes | Title, automatic bullets and continuation indentation |
-| Image lab | PNG/JPEG/WebP, rotation, brightness, contrast, Atkinson/Floyd/Bayer/threshold |
-| Drawing pad | Mouse, pen and touch, eraser, undo and clear |
-| 3D cost calculator | Filament, waste, energy, labor/extras and true selling-price margin |
-| Calibration | Head-width ruler, graphic bands and physical-test guidance |
-| Exports | PNG preview, binary PBM P4 and native ESC/Bema job bytes |
+| Editor | Bold/italic/underline, alignment, expanded/condensed, deterministic columns, zoom and resizable split preview |
+| List | Rich items, title/date, bullets and continuation indentation |
+| File | Text/code, PDF/Office, literal or optimized raster, numbering, headers, page gaps and per-page cutting |
+| Photo | Auto levels/adjustment, presets, brightness/contrast/gamma, dithering, threshold, inversion, rotation, pixel scaling and Game Boy Camera |
+| Drawing | Brush, continuous shade, fill, eraser, rectangular/freehand selection, grayscale, opacity, ratio/orientation, undo/redo |
+| 3D calculator | Original costs, depreciation, labor, failure reserve, fee, margin, discount, rounding, customer receipt, printer catalog, history and CSV |
+| 3D model | STL/OBJ/3MF/ASCII FBX, camera, UP axis, orientation cube, projections, all materials, light/ground/shadow and monochrome printing |
+| Computer | Printable local OS/CPU/RAM/disk/uptime report |
+| Tests/settings | Test sheets, feed, cut, RAW, adjustable calibration ranges/manual values and saved paper settings |
+| Connection | Discovery, USB/RAW queue, serial parameters, connection test and persistent profile |
 
-The browser creates the exact monochrome bitmap used for printing. The C
-engine converts its row-packed PBM to 24-dot vertical ESC-star bands. No original
-photo or source file is uploaded to a hosted service.
+PNG/PBM/ESC-Bema preview export is also available.
 
 ## Documentation
 
-| English | Português |
+| English first | Português brasileiro |
 | --- | --- |
-| [Install and use](docs/en/USER_GUIDE.md) | [Instalar e usar](docs/pt-BR/GUIA_DO_USUARIO.md) |
+| [Install and use every tool](docs/en/USER_GUIDE.md) | [Instalar e usar cada ferramenta](docs/pt-BR/GUIA_DO_USUARIO.md) |
 | [Architecture, configuration and API](docs/en/TECHNICAL.md) | [Arquitetura, configuração e API](docs/pt-BR/TECNICO.md) |
 | [Build, test and package](docs/en/DEVELOPMENT.md) | [Compilar, testar e empacotar](docs/pt-BR/DESENVOLVIMENTO.md) |
-| [Screenshots](docs/SCREENSHOTS.md) | [Capturas de tela](docs/SCREENSHOTS.md) |
-| [Release notes / limitations](docs/en/RELEASE_NOTES.md) | [Notas / limitações](docs/pt-BR/NOTAS_DA_VERSAO.md) |
+| [Parity and intentional differences](docs/FEATURE_PARITY.md) | [Paridade e diferenças](docs/FEATURE_PARITY.md) |
+| [Screenshots](docs/SCREENSHOTS.md) | [Capturas](docs/SCREENSHOTS.md) |
+| [Release notes](docs/en/RELEASE_NOTES.md) | [Notas da versão](docs/pt-BR/NOTAS_DA_VERSAO.md) |
 
-## Build from source
+## Build
 
 C99 compiler + CMake 3.20+:
 
@@ -91,26 +86,16 @@ ctest --test-dir build -C Release --output-on-failure
 ./build/bematech-printer
 ~~~
 
-For Visual Studio's multi-config generator, use
-`.\build\Release\bematech-printer.exe` instead.
-Python is optional for integration tests; it is never an application dependency.
+Visual Studio outputs the executable under build/Release/. Packages target
+Windows x86-64, Linux x86-64 and macOS Intel/Apple silicon.
 
-## Project boundaries
+## Data and licenses
 
-This repository is an independent local tool. Hosted demo packaging, hosting
-metadata and deployment source live in a separate private checkout. Only the
-shared local interface and documentation screenshots are included here.
-There is no production service configuration, account system, token, database,
-tunnel or reference to a private printer endpoint.
+Settings, custom 3D printers, quotes and recent jobs stay in your local profile.
+Demo data stays in browser storage. The native app binds to IPv4 loopback and
+checks Host/Origin. No accounts, credential database or private service
+deployment is included.
 
-The app has no user authentication. It binds only to IPv4 loopback, checks Host
-and browser Origin and provides no CORS permission. Those local boundaries do
-not turn it into an internet service. Settings and session history are in memory.
-
-## License and support
-
-MIT. Independent community project; not an official Bematech product.
-Open issues with OS, app version, command dialect and a redacted error message.
-Physical printer output still needs validation on your own hardware.
-
-![Monochrome image processing](docs/screenshots/image-en.png)
+Application: MIT. cJSON: MIT. PDF.js: Apache-2.0. Notices are included.
+Independent project, not an official Bematech product. Validate physical output
+on your printer and command mode before relying on it operationally.

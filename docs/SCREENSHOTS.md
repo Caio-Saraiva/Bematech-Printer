@@ -1,40 +1,30 @@
 # Application screenshots / Capturas do aplicativo
 
-Real browser captures of the local application running against the C simulation
-server. No physical printer was contacted. The hosted playground uses the same
-interface with a separate browser-only wrapper.
+Real browser captures of the 0.2.0 Windows 98 application running against the
+native C server in simulation. No physical printer was contacted. The hosted
+playground uses the same interface with a browser-only adapter.
 
-Captured with UI version 0.1.0; the 0.1.1 update changes packaging only.
+Capturas reais da versão 0.2.0 com servidor C em simulação. Nenhuma impressora
+física foi acionada. A demo hospedada usa a mesma interface.
 
-Capturas reais da aplicação local com o servidor C em simulação. Nenhuma
-impressora física foi acionada. A demo usa a mesma interface e um wrapper separado.
+## Original Windows 98 studio / Estúdio Windows 98 original
 
-## Text studio / Estúdio de texto
+![Editor in English](screenshots/editor-en.png)
+![Editor em português](screenshots/editor-pt-BR.png)
 
-![English desktop, 1280px](screenshots/editor-en.png)
-![Português brasileiro, 1280px](screenshots/editor-pt-BR.png)
+## Complete tools / Todos os utilitários
 
-## Image lab / Laboratório de imagem
+![Lists](screenshots/list-en.png)
+![PDF/Office files](screenshots/file-en.png)
+![Office document](screenshots/document-en.png)
+![Photo processing](screenshots/image-en.png)
+![Drawing](screenshots/drawing-en.png)
+![3D cost calculator](screenshots/calculator-en.png)
+![3D model viewer and print preview](screenshots/model-en.png)
+![Local USB/Serial connection](screenshots/connection-en.png)
+![Calibration wizard](screenshots/calibration-en.png)
 
-![Atkinson image preview](screenshots/image-en.png)
-
-## Lists / Listas
-
-![List utility](screenshots/list-en.png)
-
-## Drawing / Desenho
-
-![Drawing utility](screenshots/drawing-en.png)
-
-## Cost calculator / Calculadora de custos
-
-![Cost calculator](screenshots/calculator-en.png)
-
-## Calibration / Calibração
-
-![Calibration sheet](screenshots/calibration-en.png)
-
-## Responsive layouts / Layouts responsivos
+## Responsive layouts / Telas responsivas
 
 ![Tablet at 768px](screenshots/tablet.png)
-![Phone at 360px, Portuguese](screenshots/mobile-pt-BR.png)
+![Phone at 360px in Portuguese](screenshots/mobile-pt-BR.png)

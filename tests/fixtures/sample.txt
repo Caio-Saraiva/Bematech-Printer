@@ -1,0 +1,5 @@
+BEMATECH FILE TEST
+
+Line 3: preserved blank line
+Acentos: ação, coração, pão.
+Line 5: print the same content.

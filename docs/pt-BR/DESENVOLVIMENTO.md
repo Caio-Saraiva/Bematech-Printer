@@ -17,7 +17,8 @@ ctest --test-dir build -C Release --output-on-failure
 ~~~
 
 No Linux/macOS, rode ./build/bematech-printer. No Visual Studio, o executável
-fica em build/Release/. As bibliotecas de sistema são as únicas dependências C.
+fica em build/Release/. cJSON está incorporado (MIT) e PDF.js conserva licença Apache 2.0.
+Poppler/LibreOffice são opcionais para importação nativa de documentos.
 
 ## Testes
 
@@ -28,10 +29,12 @@ ativos em Release.
 
 Se Python estiver disponível na configuração, CTest inclui integração:
 inicia servidor em simulação, testa Host/Origin, entradas válidas/inválidas,
-exportação CLI e serial POSIX virtual. Não há descoberta nem acesso automático
+exportação CLI, persistência após reinício, caminho relativo de perfil,
+centralização de bitmaps row/continuous e serial POSIX virtual. Não há descoberta nem acesso automático
 à impressora real.
 
-A validação de navegador cobre seis utilitários, exportações, erros,
+A validação de navegador cobre editor, lista, arquivos, foto, desenho,
+calculadora e modelo 3D, conexão, calibração, exportações, erros,
 EN/PT-BR e larguras 360, 768 e 1280. Ao editar web/, recompile: os assets são
 embutidos durante a compilação.
 
@@ -81,8 +84,8 @@ Mantenha bytes de dispositivo no motor C. Ferramentas web devem gerar o
 bitmap pelo contrato P4. Adicione testes de bytes exatos ao criar comandos.
 Preserve limites de entrada e a escuta no loopback.
 
-Textos ingleses ficam em index.html; traduções PT-BR e frases dinâmicas ficam
-em app.js. Atualize os dois idiomas e teste rótulos longos.
+Os textos originais em português ficam nos módulos da interface; traduções
+para inglês e frases dinâmicas ficam em web/i18n.js. Atualize os dois idiomas e teste rótulos longos.
 
 A hospedagem da demo fica em checkout privado separado. Copie apenas os assets
 aprovados para lá e preserve o wrapper que impede acesso à ponte local.

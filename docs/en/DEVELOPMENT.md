@@ -11,8 +11,9 @@
 | macOS | Xcode Command Line Tools, CMake; hdiutil and codesign for DMG |
 | Optional checks | Python 3 for integration/checksum scripts; Node for JS syntax checks |
 
-There are no application runtime packages and no fetched C dependencies.
-The C library uses the standard library; the native adapter uses OS APIs.
+There are no required application runtime packages or fetched C dependencies.
+Native PDF/Office import optionally invokes Poppler and LibreOffice; see the user guide.
+cJSON is vendored under MIT, and PDF.js assets retain their Apache 2.0 license.
 
 ~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -32,11 +33,13 @@ optimization does not remove them.
 
 If Python is available at configure time, CTest also starts a simulation
 server, checks Host/Origin behavior, exercises valid and invalid print
-requests, verifies CLI output and sends a job to a virtual POSIX serial port.
+requests, verifies CLI output, profile persistence across a restart, relative profile paths,
+row/continuous bitmap centering and sends jobs to a virtual POSIX serial port.
 This never discovers or opens the user's real printer.
 
-Browser QA is separate: editor, list, image, drawing, calculator, calibration,
-exports, invalid input, EN/PT-BR, 360/768/1280 widths. Documentation captures
+Browser QA is separate: editor, list, documents, image, drawing, calculator,
+3D model import/print, connection, calibration, exports, invalid input,
+EN/PT-BR and 360/768/1280 widths. Documentation captures
 show the app, not mockup artwork. When updating web files, rebuild before
 testing the executable because assets are embedded at compile time.
 
@@ -94,8 +97,8 @@ and use the existing P4 contract rather than introducing arbitrary raw-command
 HTTP endpoints. Add exact-byte C tests when adding printer commands. Keep
 limits at each boundary and preserve loopback binding.
 
-English strings are the source entries in index.html; PT-BR mappings and
-dynamic strings live in app.js. Update both languages and test long labels.
+Portuguese source strings live in the original UI modules; English translations
+and dynamic strings live in web/i18n.js. Update both languages and test long labels.
 
 The hosted playground checkout is maintained separately. To refresh it, copy
 the approved static assets into the private deployment checkout and retain its
