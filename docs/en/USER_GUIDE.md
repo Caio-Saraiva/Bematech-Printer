@@ -18,23 +18,34 @@ software. A native build is available if your OS blocks downloaded binaries.
 On Debian/Ubuntu:
 
 ~~~sh
-sudo apt install ./bematech-printer-*.deb
+sudo apt install ./*bematech-printer*.deb
 bematech-printer
 ~~~
 
 On AppImage-capable distributions:
 
 ~~~sh
-chmod +x Bematech-Printer-x86_64.AppImage
-./Bematech-Printer-x86_64.AppImage
+chmod +x bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
+./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
 # If the host lacks FUSE:
-./Bematech-Printer-x86_64.AppImage --appimage-extract-and-run
+./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage --appimage-extract-and-run
 ~~~
 
 The UI is embedded in the executable. Keep the app running while using the
 studio. Ctrl+C stops a terminal session. On macOS, close the app process from
 Activity Monitor if launched without a terminal. Only one instance can occupy
 a given port; use --port 8425 for a second instance.
+
+For the macOS DMG, drag the app to Applications. To select a real device,
+run its embedded executable from Terminal:
+
+~~~sh
+"/Applications/Bematech Printer.app/Contents/MacOS/bematech-printer" serve --device /dev/cu.usbmodem1234
+~~~
+
+Portable ZIP executables live inside the extracted bin/ directory. On Windows,
+open PowerShell in that directory before running .\bematech-printer.exe.
+For AppImage real output, append --device PORT to the AppImage command itself.
 
 ## First run: simulation
 

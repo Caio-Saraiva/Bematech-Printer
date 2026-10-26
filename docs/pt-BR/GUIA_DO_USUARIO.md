@@ -18,23 +18,34 @@ para programas compilados localmente; também é possível compilar a fonte.
 Debian/Ubuntu:
 
 ~~~sh
-sudo apt install ./bematech-printer-*.deb
+sudo apt install ./*bematech-printer*.deb
 bematech-printer
 ~~~
 
 AppImage:
 
 ~~~sh
-chmod +x Bematech-Printer-x86_64.AppImage
-./Bematech-Printer-x86_64.AppImage
+chmod +x bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
+./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage
 # Se não houver FUSE:
-./Bematech-Printer-x86_64.AppImage --appimage-extract-and-run
+./bematech-linux-x86_64-Bematech-Printer-x86_64.AppImage --appimage-extract-and-run
 ~~~
 
 A interface está embutida no executável. Mantenha o programa aberto enquanto
 usa o estúdio. Ctrl+C encerra uma execução pelo terminal. No macOS, o Monitor
 de Atividade permite encerrar um app iniciado sem terminal. Para outra instância,
 use uma porta diferente, por exemplo --port 8425.
+
+No DMG macOS, arraste o app para Aplicativos. Para escolher a impressora real,
+execute o binário embutido pelo Terminal:
+
+~~~sh
+"/Applications/Bematech Printer.app/Contents/MacOS/bematech-printer" serve --device /dev/cu.usbmodem1234
+~~~
+
+Nos ZIPs, o executável fica no diretório bin/ extraído. No Windows, abra o
+PowerShell nesse diretório antes de usar .\bematech-printer.exe. No AppImage,
+adicione --device PORTA ao próprio comando do AppImage.
 
 ## Primeira execução: simulação
 
