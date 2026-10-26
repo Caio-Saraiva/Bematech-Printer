@@ -1,97 +1,102 @@
-# Compilar, testar e empacotar
+# Compilar, testar, empacotar e manter
 
 [English](../en/DEVELOPMENT.md) · [Português](DESENVOLVIMENTO.md)
 
 ## Ferramentas
 
-Windows: Visual Studio Build Tools com Desktop C/C++, CMake e NSIS para
-instalador. Linux: GCC/Clang, CMake 3.20+, Make/Ninja e dpkg para DEB.
-macOS: Xcode Command Line Tools e CMake; hdiutil/codesign produzem o DMG.
-Python 3 é opcional nos testes de integração/checksums; Node é opcional para
-validar sintaxe JavaScript. Nenhum deles é necessário ao executar o app.
+Compilador C99, CMake 3.20+ e Make/Ninja ou Visual Studio. cJSON e PDF.js são
+vendorizados em versões fixas. Executar o app não requer Python/Node/npm/pip
+nem download de dependências.
+
+Windows: Visual Studio Desktop C/C++, CMake e NSIS. Linux: GCC/Clang, CMake e
+Make/Ninja; dpkg para DEB. macOS: Xcode Command Line Tools e CMake;
+hdiutil/codesign para DMG.
+
+Python 3 é opcional nos testes/fixtures/checksums. Node pode validar JavaScript.
+Poppler/LibreOffice são auxiliares nativos opcionais para documentos.
 
 ~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
+./build/bematech-printer --no-open --config /tmp/bematech-dev/settings.json
 ~~~
 
-No Linux/macOS, rode ./build/bematech-printer. No Visual Studio, o executável
-fica em build/Release/. cJSON está incorporado (MIT) e PDF.js conserva licença Apache 2.0.
-Poppler/LibreOffice são opcionais para importação nativa de documentos.
+No Visual Studio, o binário fica em build/Release/. Assets web são embutidos:
+recompile e reinicie após editar web/.
 
 ## Testes
 
-O teste C confere bytes CP850 exatos, UTF-8 estrito, rejeição de ESC,
-quebra de linha, dimensões de bitmap e parser P4, inclusive raster que começa
-com um byte cujo valor corresponde a espaço em branco. Os testes continuam
-ativos em Release.
+O teste C valida bytes CP850, Unicode incompatível, UTF-8 inválido, controles
+injetados, quebra, limites de bitmap e parser P4. Continua ativo em Release.
 
-Se Python estiver disponível na configuração, CTest inclui integração:
-inicia servidor em simulação, testa Host/Origin, entradas válidas/inválidas,
-exportação CLI, persistência após reinício, caminho relativo de perfil,
-centralização de bitmaps row/continuous e serial POSIX virtual. Não há descoberta nem acesso automático
-à impressora real.
+A integração Python inicia servidor simulado com perfil temporário. Confere
+ajustes, conexão/dispositivos, histórico, proteção CSV, calibração, diagnóstico,
+CLI e texto rico C. Em POSIX, captura bytes por serial virtual, sem abrir a
+impressora física. PDF/Office são testados quando os auxiliares existem.
 
-A validação de navegador cobre editor, lista, arquivos, foto, desenho,
-calculadora e modelo 3D, conexão, calibração, exportações, erros,
-EN/PT-BR e larguras 360, 768 e 1280. Ao editar web/, recompile: os assets são
-embutidos durante a compilação.
+~~~sh
+python3 tests/make_fixtures.py
+~~~
+
+Gera PDF/DOCX/OBJ originais em output/fixtures/, ignorado. Há também fixtures
+públicas de cubo OBJ, texto e padrão vetorial de foto.
+
+Valide as oito abas em EN/PT-BR e 360/768/1280 pixels: editor, lista, arquivo,
+foto, desenho, calculadora, computador e modelo. Verifique prévia visível
+depois de sair de foto/modelo, estilos, numeração/linhas vazias, PDF/Office,
+desfazer/refazer, versão de cliente, histórico/CSV, materiais/pose/impressão 3D
+e salvar/testar conexão. Sucesso HTTP não prova a visibilidade da prévia.
+
+Compare exportação ESC web com codificação C para um bitmap e examine cada
+captura. Não use mockup como prova de implementação.
+
+## Preservar a interface original
+
+CSS e utilitários Windows 98 originais são a referência: chanfros, controles
+compactos, título azul, área cinza e papel físico. Controles de plataforma
+devem ser aditivos; não substitua módulos por versões reduzidas.
+Mantenha formatos, materiais e câmeras do visualizador 3D.
+Consulte FEATURE_PARITY.md antes de limitar ou remover comportamentos.
+
+Inglês é o padrão e PT-BR continua disponível. Tradução preserva valores dos
+controles e conteúdo do usuário. Atualize o dicionário e teste textos longos.
 
 ## Pacotes
 
 ~~~sh
 cpack --config build/CPackConfig.cmake -C Release -G ZIP
-# Debian
 cpack --config build/CPackConfig.cmake -G DEB
-# Windows
 cpack --config build/CPackConfig.cmake -C Release -G NSIS
-# macOS
 sh packaging/macos.sh build
-# AppImage: obtenha appimagetool 1.9.1 na release oficial
 sh packaging/appimage.sh build /caminho/absoluto/appimagetool-x86_64.AppImage
 ~~~
 
-O AppImage reúne AppRun, executável, ícone e desktop entry. Não embute glibc:
-compile numa distribuição compatível com o público-alvo. DEB também usa a libc
-do sistema de compilação.
+Windows usa runtime MSVC estático. AppImage contém AppRun, ícone, desktop entry
+e executável; não embute glibc nem auxiliares Office. Compile Linux numa base
+compatível com o público. macOS é compilado para Intel e Apple silicon, com
+assinatura ad-hoc. Certificados/notarização públicos não ficam no repositório.
 
-O macOS é compilado separadamente para Apple silicon e Intel. Assinatura ad-hoc
-confere integridade, sem notarização. Notarização e assinatura pública Windows
-dependem de identidades/certificados próprios, que não ficam no repositório.
+Inclua avisos de licença. Poppler/LibreOffice permanecem instalações opcionais
+do sistema. Não embuta ambientes de máquina nem configuração privada.
 
 ## CI e releases
 
-O workflow testa Linux x86-64, Windows x86-64, macOS arm64 e macOS x86-64.
-Produz ZIP, DEB, AppImage, NSIS, DMG e SHA256SUMS. Branches e PRs geram
-artefatos; tags v* publicam uma pré-release depois do sucesso das plataformas.
+Workflow testa e empacota Linux x86-64, Windows x86-64, macOS arm64 e x86-64.
+Branches/PRs geram artefatos; tags geram pré-release depois do sucesso dos jobs.
+SHA256SUMS geral corresponde aos nomes finais dos downloads.
 
-Para uma nova versão:
+Atualize BP_VERSION, versão CMake e bundle macOS juntos. Atualize notas,
+capturas e paridade nos dois idiomas. Teste, faça commit e envie a tag vX.Y.Z.
+Confira os pacotes baixados e hashes antes de entregar.
 
-1. Atualize BP_VERSION, versão CMake e metadados do bundle macOS.
-2. Atualize notas EN/PT-BR e capturas.
-3. Rode CTest e valide o navegador.
-4. Faça commit, crie e envie a tag vX.Y.Z.
-5. Confira jobs nativos e downloads antes de promover a versão.
+## Demo e higiene
 
-Compilar e empacotar não certifica o hardware: teste um recibo curto no modo
-ESC/Bema em cada combinação de sistema/impressora antes de anunciar suporte
-físico verificado.
+Wrapper, identidade de hospedagem, manifesto e checkout da demo ficam separados
+do repo público. Copie assets aprovados, preserve o flag de simulação e confirme
+ausência de chamadas /api/ ou hardware. Não use o serviço privado como backend.
+As diferenças de PDF/Office por ambiente estão documentadas.
 
-## Manutenção
-
-Mantenha bytes de dispositivo no motor C. Ferramentas web devem gerar o
-bitmap pelo contrato P4. Adicione testes de bytes exatos ao criar comandos.
-Preserve limites de entrada e a escuta no loopback.
-
-Os textos originais em português ficam nos módulos da interface; traduções
-para inglês e frases dinâmicas ficam em web/i18n.js. Atualize os dois idiomas e teste rótulos longos.
-
-A hospedagem da demo fica em checkout privado separado. Copie apenas os assets
-aprovados para lá e preserve o wrapper que impede acesso à ponte local.
-Identidade de hospedagem e credenciais nunca entram neste repositório.
-Capturas aprovadas ficam em docs/screenshots/.
-
-build*/, dist/, logs, binários de trabalho, .env*, caches Playwright e
-metadados de hospedagem são ignorados. A história Git pública é independente
-da história do serviço privado.
+Não versione perfis, orçamentos, imagens/modelos do usuário, credenciais,
+builds ou saídas de teste. Capturas aprovadas ficam em docs/screenshots/.
+Use perfis temporários fora do checkout ou caminhos ignorados.

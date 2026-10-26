@@ -1,156 +1,219 @@
-# Architecture, configuration and API
+# Native architecture, modules, settings and API
 
-[Português](../pt-BR/TECNICO.md)
+[English](TECHNICAL.md) · [Português](../pt-BR/TECNICO.md)
 
-## Flow and modules
+## Architecture
 
-```text
-Original Windows 98 UI → local bridge → monochrome bitmap pages
-→ loopback HTTP → native C app → ESC/Bema encoder → selected transport
-```
+~~~text
+Original Windows 98 HTML/CSS/JS
+   ├─ rich editor/list/file/quote/report → normalized styled lines
+   ├─ photo/drawing/model/PDF raster → monochrome bitmap
+   └─ settings/connection/history → JSON
+                         ↓ loopback HTTP
+C app state + validation + persistent local profile
+   ├─ CP850 styled ESC/Bema text, or Unicode bitmap fallback
+   ├─ PBM / 1-bit pixels → ESC-star graphic bands
+   └─ Serial / USB printer class / installed RAW queue
+~~~
+
+The shared browser UI retains the original utility algorithms. The backend and
+device access are C99. There is no Python runtime, authentication/session layer,
+credential database or private server tunnel.
+
+The hosted demo has no native process or physical transport. Its wrapper disables
+native discovery, and the bridge uses browser-local data and simulated jobs.
+
+## Every module
 
 | Module | Responsibility |
 | --- | --- |
-| `include/bematech.h`, `src/bematech.c` | Public byte-buffer API, limits, UTF-8/CP850, wrapping, PBM P4 and 24-dot ESC-star encoding |
-| `include/native.h` | Native app, response, JSON, device, conversion and diagnostics contracts |
-| `src/main.c` | CLI parsing, input/output files, server launch |
-| `src/app.c` | JSON state, atomic configuration writes, validation, API dispatch, calibration, jobs, calculator history and CSV |
-| `src/device.c` | Device discovery, Win32 COM and RAW spooler, POSIX termios, Linux USB printer-class, CUPS RAW queue |
-| `src/server.c` | Single-client loopback HTTP, Host/Origin/header boundaries, embedded assets, browser launch |
-| `src/documents.c` | Private temporary document conversion using Poppler/LibreOffice, page extraction/rasterization and cleanup |
-| `src/process.c` | Native argument-based subprocess execution and converter timeouts |
-| `src/diagnostic.c` | Windows/Linux/macOS CPU, RAM, disk, OS and uptime |
-| `third_party/cjson/` | Vendored cJSON and MIT license |
-| `web/index.html`, `styles.css`, `design.css` | Original Windows 98 shell, responsive workspace and paper preview |
-| `web/app.js`, `patch.js`, `utilities.js` | Original core tools, previews, tests, calibration and interactions |
-| `web/editor-v2.js`, `photo-file-v2.js`, `draw-v1.js` | Advanced editor, photo/document handling and drawing |
-| `web/calculator-3d.js`, `model-3d.js`, `server-diagnostic.js` | Complete calculator, software-rendered mesh viewer and printable diagnostics |
-| `web/local-bridge.js` | Native API adapter, browser simulation, text rasterization and exports |
-| `web/local-documents.js`, `pdf*.mjs` | Browser-only PDF/Office adapter; PDF.js license is included |
-| `web/local-settings.js`, `local-settings.css` | Connection dialog, serial configuration, device list and export controls |
-| `web/i18n.js` | English/PT-BR UI translation, including dynamically created controls |
-| `cmake/EmbedWeb.cmake` | Embeds all web assets into the native executable |
-| `tests/` | C byte contracts, HTTP/CLI/persistence tests, virtual serial and original mesh fixture |
-| `packaging/`, `.github/workflows/build.yml`, `tools/checksums.py` | Native packages, four-platform CI and SHA-256 manifests |
+| include/bematech.h | Public C buffers, options, CP850/text/bitmap/PBM encoding and server entry |
+| include/native.h | Internal C app state, JSON response, transport, conversion and diagnostics interfaces |
+| src/bematech.c | Bounded buffers, UTF-8 validation, CP850 encoding, text wrapping and vertical ESC-star bands |
+| src/app.c | Local profile, settings validation, connection/history/catalog/quotes API, styled text, calibration, job metadata, base64 and CSV |
+| src/server.c | IPv4 loopback HTTP, Host/Origin boundary, explicit embedded assets and synchronous request dispatch |
+| src/device.c | Device enumeration, serial settings, Win32 RAW spooler, POSIX USB device and CUPS queue |
+| src/process.c | Native helper process execution, argument quoting, output redirection and timeout |
+| src/documents.c | Temporary PDF/Office conversion, page limits, PGM reading/cropping/resizing/thresholding and cleanup |
+| src/diagnostic.c | Windows/Linux/macOS CPU, memory, uptime, system and disk sampling |
+| src/main.c | CLI commands, overrides, file read/export and launch |
+| third_party/cjson/ | Pinned cJSON 1.7.19 parser, MIT |
+| cmake/EmbedWeb.cmake | Embeds UI assets, modules and PDF.js in generated C arrays |
+| web/app.js | Original common state, text/photo processing and base UI handlers |
+| web/patch.js | Original calibration ranges/manual entry and settings |
+| web/utilities.js | Original richer list/file actions, diagnostics and RAW tool |
+| web/editor-v2.js | Original rich style/column preview, physical paper, split divider and zoom |
+| web/photo-file-v2.js | Original imports, multi-page behavior, auto adjustment and presets |
+| web/draw-v1.js | Original drawing engine: brush/shade/fill/selection/history |
+| web/calculator-3d.js | Original full costing, receipt variants, printer/history UI |
+| web/model-3d.js | Original unchanged parsers, mesh normalization, projection, shading/materials, gizmo and thermal output |
+| web/server-diagnostic.js | Original printable report UI, adapted to local computer |
+| web/local-bridge.js | Native API adapter, normalized rich lines, bitmap fallback, isolated demo storage and export |
+| web/local-documents.js | Demo/browser PDF.js and modern Office extraction |
+| web/local-settings.js | Local connection dialog, bootstrap and export controls |
+| web/i18n.js | English-first and PT-BR text without changing original layout |
+| web/styles.css, design.css | Original Windows 98 theme |
+| web/*-v2.css, draw-v1.css, calculator-3d.css, model-3d.css | Original utility/paper layout |
+| web/local-settings.css | Additive connection/language/responsive adjustments |
+| web/pdf*.mjs | Self-hosted PDF.js and worker, Apache-2.0 |
+| tests/ | Core, process/API/virtual-serial and generated document/model fixtures |
+| packaging/ | Desktop entry, AppImage and macOS launch/bundle resources |
+| tools/checksums.py | Build-time package SHA-256 manifest |
 
-## State and configuration
+## Local profile
 
-First launch defaults to simulation. The saved connection is restored at next
-launch; no port is opened merely by restoring it. Save/test or print opens it.
-`--device` overrides the restored transport with serial for the current process.
-Explicit CLI overrides affect server settings; later saves persist current state.
-Standalone `text`/`image` CLI commands use their supplied options, not the profile.
+Default location:
 
-| OS | Default profile |
+| OS | File |
 | --- | --- |
-| Windows | `%APPDATA%/Bematech-Printer/settings.json` |
-| macOS | `~/Library/Application Support/Bematech-Printer/settings.json` |
-| Linux | `$XDG_CONFIG_HOME/bematech-printer/settings.json`, otherwise `~/.config/bematech-printer/settings.json` |
+| Windows | %APPDATA%/Bematech-Printer/settings.json |
+| macOS | ~/Library/Application Support/Bematech-Printer/settings.json |
+| Linux | $XDG_CONFIG_HOME/bematech-printer/settings.json, or ~/.config/bematech-printer/settings.json |
 
-`--config FILE` chooses another profile. The JSON contains `settings`,
-`connection`, custom `printers`, the latest 100 `quotes` and `jobs`, and a job
-`counter`. Writes use a temporary file and replace the target; POSIX files use
-mode 0600. Invalid profiles cause startup to fail instead of silently losing data.
-Browser-only simulation stores settings and history in localStorage. Document
-content, drawings, photos and meshes are not automatically persisted.
+--config selects another file. The profile contains settings, connection,
+custom printers, the latest 100 quotes, the latest 100 job metadata records and
+an ID counter. It does not store uploaded photos/models or editor documents.
+Recent-jobs API returns the last 20 records.
 
-| Setting | Default | Range |
-| --- | --- | --- |
-| `cols_a` / `cols_b` | 48 / 64 | 20–80 / 30–120 |
-| `dots` / `image_width` | 576 / 576 | 320–832 / 8–832; image width ≤ dots |
-| `line_spacing` | 17 | 1–60 |
-| `default_feed` | 3 | 0–20 |
-| `auto_cut`, `italic`, `raster_fallback` | 1 | 0/1 |
-| `condensed_esc` | 0 | 0/1 |
+Writes use a temporary file and replacement; POSIX directories/files use private
+permissions. Invalid existing files are not silently overwritten. Back up this
+profile to preserve local history. Browser/demo storage is separate and belongs
+to the site's origin.
 
-Connection: `transport` is `simulation`, `serial`, `usb` or `system`; `device`
-is a port or queue. Serial settings: baud 1200/2400/4800/9600/19200/38400/57600/
-115200, 7/8 data bits, none/even/odd parity, 1/2 stop bits. Defaults: 9600 8N1.
-USB CDC uses serial. Direct printer-class USB uses `/dev/usb/lpN` on Linux;
-Windows uses its RAW spooler; macOS uses a configured CUPS RAW queue (`system`).
-System queues require OS printing tools/services. No libusb bulk driver is included.
+## Every printer setting
+
+| Key | Default | Range / meaning |
+| --- | ---: | --- |
+| cols_a | 48 | 20–80 normal columns |
+| cols_b | 64 | 30–120 condensed columns |
+| dots | 576 | 320–832 usable print-head pixels |
+| image_width | 576 | 8..dots default photo width |
+| line_spacing | 17 | 1–60 ESC 3 graphic spacing |
+| default_feed | 3 | 0–20 final newlines |
+| auto_cut | 1 | 0/1 default cutter |
+| italic | 1 | 0/1 allow native ESC 4/5 italic |
+| condensed_esc | 0 | 0/1 allow native ESC M condensed font |
+| raster_fallback | 1 | 0/1 use rendered bitmap for non-CP850 rich content |
+
+Rich requests include normalized styled lines and fallback bitmaps. C emits
+onboard text/styles when possible. Unsupported Unicode triggers fallback when
+enabled; disabled fallback replaces unrepresentable text. Bitmap tools always
+use graphics. Expanded/condensed affect the same effective column count as the UI.
+
+## Connection settings
+
+transport is simulation, serial, usb or system; device identifies the OS device
+or queue. Serial fields: baud, data_bits, parity, stop_bits. Defaults are
+9600/8/none/1. Supported baud rates are 1200 through 115200 as listed in the user
+guide. No software/hardware flow control is enabled.
+
+Windows serial uses CreateFile, DCB, WriteFile, a 15-second write timeout and
+FlushFileBuffers. Win32 queues use OpenPrinter/StartDocPrinter with RAW data.
+POSIX serial uses raw termios and tcdrain; Linux USB printer class writes its
+device directly. Unix/macOS system queues use lp -d NAME -o raw.
+
+Device listing reads available names without printing. Connection testing opens
+the selected target without job bytes. A configured/connected status is not a
+paper-sensor or physical-output guarantee.
 
 ## CLI
 
-`bematech-printer [serve|text FILE|image FILE] [options]`
+Commands: serve (default), text FILE, image FILE.
 
-| Option | Default / behavior |
+| Option | Meaning |
 | --- | --- |
-| `--device PORT` | Explicit serial override; needed for CLI printing unless exporting |
-| `--config FILE` | Native server profile path |
-| `--output FILE` | CLI ESC/Bema export; takes precedence over device; invalid for serve |
-| `--port N` | 8421; 1024–65535, IPv4 loopback |
-| `--columns N` | 48; 20–80 |
-| `--dots N` | 576; 320–832 |
-| `--spacing N` | 17; 1–60 |
-| `--feed N` | 3; 0–20 |
-| `--no-cut` | Disable final guillotine command |
-| `--no-open` | Keep browser launch disabled |
-| `--help`, `--version` | Print information and exit |
+| --device PORT | Explicit serial target |
+| --config FILE | Local profile path |
+| --output FILE | CLI binary export, no device output |
+| --port N | 1024–65535, default 8421 |
+| --columns N | 20–80, default 48 |
+| --dots N | 320–832, default 576 |
+| --spacing N | 1–60, default 17 |
+| --feed N | 0–20, default 3 |
+| --no-cut | Disable final full cut |
+| --no-open | Keep browser launch manual |
+| --help / --version | Information only |
 
-Exit codes: 0 success, 1 I/O/encoding failure, 2 invalid CLI arguments.
+Explicit serve options override saved corresponding values for that process.
+The UI saves the active settings to the profile. CLI file printing requires
+--device or --output. Exit codes: 0 success, 1 I/O/encoding failure, 2 arguments.
 
-## HTTP API
+## ESC/Bema and bitmap contracts
 
-All routes use the exact printed `http://127.0.0.1:PORT` Host. POSTs require
-`Content-Length` and `X-Bematech-Client: 1`; supplied Origin must match. No
-accounts, CORS permission or chunked request bodies. JSON unless stated otherwise.
-
-| Method/path | Contract |
+| Operation | Bytes |
 | --- | --- |
-| GET `/api/info` | Version, transport/mode, dots, columns, spacing, feed, cut |
-| GET `/api/settings` | Current calibration/settings object |
-| POST `/api/settings` | Merge validated integer settings; returns `{ok,settings}` |
-| GET/POST `/api/connection` | Read/replace connection object; GET also returns config path |
-| GET `/api/devices` | `{devices:[{transport,device,label}]}` |
-| POST `/api/connection/test` | Open current connection without printing; `{ok,state}` |
-| GET `/api/status` | Configured transport/device/state, not live paper/cover sensors |
-| GET `/api/jobs` | Latest 20 metadata entries, newest first |
-| GET `/api/server-diagnostic` | Local OS, uptime, CPU, RAM, disk |
-| GET/POST `/api/calculator/printers` | Built-ins plus custom printers; POST: name, power_w, max_power_w, note |
-| POST `/api/calculator/quotes` | Save `{data,result}` calculation snapshot |
-| GET `/api/calculator/history` | Latest 100 quotes, newest first |
-| GET `/api/calculator/history.csv` | UTF-8 BOM, semicolon CSV, formula-prefix escaping |
-| POST `/api/document/read` | `{filename,data_base64,mode:"text"|"raster"}` → `{filename,mode,pages}` |
-| POST `/api/print/document`, `/api/print/list-rich` | Native contract: `{pages:[bitmap],gap,feed,cut}`; browser adapter converts rich HTML/list to pages |
-| POST `/api/print/image` | One bitmap, feed/cut |
-| POST `/api/print/images` | `{images:[bitmap],gap,feed,cut}` |
-| POST `/api/print/text` | `{text,feed,cut}` using CP850 |
-| POST `/api/print/raw` | `{data_base64}` ESC/Bema bytes |
-| POST `/api/print/test-page`, `/api/print/probe` | Text/style test or small graphic test |
-| POST `/api/calibration/print` | `{kind,candidates}` for normal/condensed columns, width or spacing |
-| POST `/api/calibration/apply` | `{kind,value}`; validated persistent setting update |
-| POST `/api/feed`, `/api/cut` | `{lines:1..30}` or empty object |
-| POST `/api/print` | Raw binary PBM P4 compatibility endpoint |
-| POST `/api/text` | Raw UTF-8 compatibility endpoint |
+| Initialize / CP850 | ESC @ / ESC t 02 |
+| Bold on/off | ESC E / ESC F |
+| Italic on/off | ESC 4 / ESC 5 |
+| Underline | ESC - n |
+| Alignment | ESC a n |
+| Expanded / reset | SO / DC4 |
+| Condensed | ESC M n |
+| Graphic spacing / restore | ESC 3 n / ESC 2 |
+| Graphic band | ESC * 33 nL nH + three bytes per column |
+| Full cut | ESC w 00 |
 
-Bitmap: `width`, `height`, `data_base64`, `packing:"row"|"continuous"` (default
-continuous). One means black; row form is MSB-first with ceil(width/8) bytes per
-row; continuous form packs all pixels without row padding. Small bitmaps are
-centered within configured dots. Printing returns HTTP 202 `{id,status,bytes}`;
-status is `simulated` or `sent`. Delivered bytes do not certify physical output.
+PBM P4 is row-aligned, MSB-first, 1=black. JSON images accept the original
+continuous packed stream or packing:"row". C handles padding, centers smaller
+web images and transposes to 24-dot vertical bands. Final partial bands are
+zero-padded. Never mix ESC/POS commands with this dialect.
 
-```sh
-curl http://127.0.0.1:8421/api/info
-curl --fail http://127.0.0.1:8421/api/print/text \
-  -H 'X-Bematech-Client: 1' -H 'Content-Type: application/json' \
-  --data '{"text":"Hello printer","feed":3,"cut":true}'
-```
+bp_cp850 distinguishes invalid text from unsupported Unicode. Encoding errors
+can leave partial buffers: discard them with bp_free rather than sending them.
 
-## Encoding and limits
+## API inventory
 
-C engine: `bp_defaults`, `bp_append`/`bp_free`, `bp_text`, `bp_bitmap`, `bp_pbm`.
-Transport: `bp_send`; server: `bp_serve`. Encoders return 0/-1; discard partial
-buffers after errors. Device commands: ESC @, ESC t 02 (CP850), ESC 3 n,
-ESC * 33 nL nH with three bytes per column, ESC 2, ESC w 00 (cut).
+All routes are local; no login or tokens. POST requires X-Bematech-Client: 1,
+Content-Length, matching Host, and matching Origin when supplied. No CORS is
+provided. Configuration only accepts supported device paths/transport values.
 
-HTTP headers ≤16 KiB; full request ≤16 MiB; encoded job ≤4 MiB; bitmap height
-≤6000, width ≤dots; ≤100 pages/job; rich browser text ≤2000 rows. Converter input
-≤10 MB, PDF text ≤100 pages, raster ≤50 pages. Converter timeouts bound external
-processes; working directories are removed after conversion. Jobs are synchronous
-inside this app. Do not let other processes write to the same printer concurrently.
+| Method/path | Purpose |
+| --- | --- |
+| GET /api/info | Version, mode and native paper options |
+| GET/POST /api/settings | Printer settings |
+| GET/POST /api/connection | Transport/device/serial parameters |
+| GET /api/devices | Available local ports/queues |
+| POST /api/connection/test | Open/check access without printing |
+| GET /api/status | Configured connection status |
+| GET /api/jobs | Last 20 jobs |
+| GET /api/server-diagnostic | Local computer metrics |
+| GET/POST /api/calculator/printers | Default/custom printer catalog |
+| POST /api/calculator/quotes | Save data/result objects |
+| GET /api/calculator/history | Latest 100 quotes |
+| GET /api/calculator/history.csv | Original-format safe CSV |
+| POST /api/document/read | filename, data_base64, mode text/raster |
+| POST /api/print | Raw P4 request body |
+| POST /api/text | Raw UTF-8 request body |
+| POST /api/print/text | JSON text, cut, feed |
+| POST /api/print/document | rich_lines and/or rendered pages, cut/feed/format |
+| POST /api/print/list-rich | Prepared rich-list lines and/or rendered pages |
+| POST /api/print/image | width, height, data_base64, optional packing |
+| POST /api/print/images | images array, gap, cut/feed |
+| POST /api/print/test-page, /api/print/probe | Printer diagnostics |
+| POST /api/calibration/print | kind and candidate integers |
+| POST /api/calibration/apply | kind and selected value |
+| POST /api/feed, /api/cut, /api/print/raw | Finishing or explicit raw bytes |
 
-The CLI rejects printer control characters and invalid/non-CP850 UTF-8. Browser
-rich text becomes raster, supporting installed-font glyphs. Windows uses native
-COM or RAW spooler APIs; POSIX uses termios or `lp -o raw`. Discovery never prints.
-Loopback protections do not isolate the app from other programs on the same PC.
+The web bridge prepares rich_lines/pages; raw HTML is not a public remote
+rendering service. Success is 200, 201 for created data and 202 for sent/simulated
+jobs. Errors use JSON error and HTTP 400/403/404/500. Sent means bytes delivered,
+not verified paper output.
+
+## Bounds and behavior
+
+Headers: 16 KiB. Request buffer: 16 MiB. Encoded print job: 4 MiB. Bitmap height:
+1..6000, width <=dots. Quotes: 80 KB/request. Native document: 10 MB, 100 text or
+50 raster pages. Conversion subprocesses have timeouts and private temporary
+directories. Requests/physical jobs are served sequentially.
+
+There is no idempotent physical print transaction. Do not blindly retry after
+a lost response. Local Host/Origin checks reduce browser misuse but do not
+protect against malicious local software. Remote exposure requires a separate
+authorization/security design.
+
+## Third-party references
+
+[cJSON](https://github.com/DaveGamble/cJSON),
+[PDF.js](https://github.com/mozilla/pdf.js),
+[Win32 printer APIs](https://learn.microsoft.com/en-us/windows/win32/printdocs/writeprinter),
+[AppDir](https://docs.appimage.org/reference/appdir.html).

@@ -227,6 +227,45 @@ static int calibration(bp_buffer *job,const cJSON *body,bp_options o){
     if(!strcmp(kind,"columns_condensed")&&bp_append(job,"\x1bM\x00",3))return -1;
     return count?line(job,"\nInspect the paper before applying a value."):-1;
 }
+static int command(bp_buffer *job,const uint8_t *bytes,size_t n){return bp_append(job,bytes,n);}
+static int rich_job(bp_buffer *job,const cJSON *body,const cJSON *settings,bp_options o){
+    cJSON *lines=cJSON_GetObjectItemCaseSensitive(body,"rich_lines"),*row,*part;
+    int expanded=bp_boolean(body,"expanded",0),condensed=bp_boolean(body,"condensed",0)&&(int)bp_number(settings,"condensed_esc",0);
+    int columns=(int)bp_number(settings,condensed?"cols_b":"cols_a",48),bold=0,italic=0,underline=0,total=0;
+    int replace=!(int)bp_number(settings,"raster_fallback",1),italic_enabled=(int)bp_number(settings,"italic",1),i;
+    const uint8_t init[]={27,'@',27,'t',2},wide[]={14},narrow[]={27,'M',1};
+    if(!cJSON_IsArray(lines)||cJSON_GetArraySize(lines)>2000||!cJSON_GetArraySize(lines))return -1;
+    if(expanded)columns/=2;
+    if(command(job,init,sizeof(init)))return -1;
+    if(expanded&&command(job,wide,sizeof(wide)))return -1;
+    if(condensed&&command(job,narrow,sizeof(narrow)))return -1;
+    cJSON_ArrayForEach(row,lines){
+        const char *align=bp_string(row,"align","left");cJSON *parts=cJSON_GetObjectItemCaseSensitive(row,"parts");int rowlen=0;
+        uint8_t a[]={27,'a',0};if(!strcmp(align,"center"))a[2]=1;else if(!strcmp(align,"right"))a[2]=2;else if(strcmp(align,"left"))return -1;
+        if(!cJSON_IsArray(parts)||cJSON_GetArraySize(parts)>256||command(job,a,sizeof(a)))return -1;
+        cJSON_ArrayForEach(part,parts){
+            const char *text=bp_string(part,"text","");bp_buffer encoded={0};int b=bp_boolean(part,"bold",0),it=bp_boolean(part,"italic",0)&&italic_enabled,u=bp_boolean(part,"underline",0),result;
+            if(strlen(text)>40000)return -1;
+            result=bp_cp850(&encoded,text,replace);if(result){bp_free(&encoded);return result;}
+            rowlen+=(int)encoded.len;total+=(int)encoded.len;
+            if(total>80000){bp_free(&encoded);return -1;}
+            if(rowlen>columns){bp_free(&encoded);return -2;}
+            if(b!=bold){uint8_t c[]={27,(uint8_t)(b?'E':'F')};if(command(job,c,sizeof(c))){bp_free(&encoded);return -1;}bold=b;}
+            if(it!=italic){uint8_t c[]={27,(uint8_t)(it?'4':'5')};if(command(job,c,sizeof(c))){bp_free(&encoded);return -1;}italic=it;}
+            if(u!=underline){uint8_t c[]={27,'-',(uint8_t)u};if(command(job,c,sizeof(c))){bp_free(&encoded);return -1;}underline=u;}
+            result=bp_append(job,encoded.data,encoded.len);bp_free(&encoded);if(result)return -1;
+        }
+        if(bp_append(job,"\n",1))return -1;
+    }
+    if(bold&&bp_append(job,"\x1b""F",2))return -1;
+    if(italic&&bp_append(job,"\x1b""5",2))return -1;
+    if(underline&&bp_append(job,"\x1b-\x00",3))return -1;
+    if(expanded&&bp_append(job,"\x14",1))return -1;
+    if(condensed&&bp_append(job,"\x1bM\x00",3))return -1;
+    for(i=0;i<o.feed;i++)if(bp_append(job,"\n",1))return -1;
+    if(o.cut&&bp_append(job,"\x1bw\x00",3))return -1;return 0;
+}
+
 static void trim(cJSON *array,int max){while(cJSON_GetArraySize(array)>max)cJSON_DeleteItemFromArray(array,0);}
 static void sent(bp_app *app,const char *kind,bp_buffer *job,bp_response *reply){
     char error[256];cJSON *conn=cJSON_GetObjectItemCaseSensitive(app->root,"connection"),*entry=cJSON_CreateObject(),*result=cJSON_CreateObject(),*jobs=cJSON_GetObjectItemCaseSensitive(app->root,"jobs");
@@ -331,7 +370,7 @@ void bp_app_request(bp_app *app,const char *method,const char *path,const void *
     }
     if(cJSON_HasObjectItem(body,"feed")&&!integer(cJSON_GetObjectItemCaseSensitive(body,"feed"),0,20))goto invalid;
     if(cJSON_HasObjectItem(body,"gap")&&!integer(cJSON_GetObjectItemCaseSensitive(body,"gap"),0,12))goto invalid;
-    if(cJSON_HasObjectItem(body,"lines")&&!integer(cJSON_GetObjectItemCaseSensitive(body,"lines"),1,30))goto invalid;
+    if(!strcmp(path,"/api/feed")&&cJSON_HasObjectItem(body,"lines")&&!integer(cJSON_GetObjectItemCaseSensitive(body,"lines"),1,30))goto invalid;
     o.cut=bp_boolean(body,"cut",o.cut);o.feed=(int)bp_number(body,"feed",o.feed);
     if(o.feed<0||o.feed>20)goto invalid;
     if(!strcmp(path,"/api/print")){if(bp_pbm(&job,raw,size,&o))goto invalid;}
@@ -339,6 +378,11 @@ void bp_app_request(bp_app *app,const char *method,const char *path,const void *
     else if(!strcmp(path,"/api/print/text")){if(bp_text(&job,bp_string(body,"text",""),&o))goto invalid;}
     else if(!strcmp(path,"/api/print/image")){if(bitmap(&job,body,o))goto invalid;}
     else if(!strcmp(path,"/api/print/images")||!strcmp(path,"/api/print/document")||!strcmp(path,"/api/print/list-rich")){
+        if(cJSON_HasObjectItem(body,"rich_lines")){
+            int rich_result=rich_job(&job,body,s,o);
+            if(rich_result==0){sent(app,path,&job,r);goto done;}
+            bp_free(&job);if(rich_result!=-2)goto invalid;
+        }
         cJSON *pages=cJSON_GetObjectItemCaseSensitive(body,"images");int count,i,gap=(int)bp_number(body,"gap",1);bp_options page_o=o;page_o.cut=0;page_o.feed=0;
         if(!pages)pages=cJSON_GetObjectItemCaseSensitive(body,"pages");count=cJSON_GetArraySize(pages);
         if(!cJSON_IsArray(pages)||count<1||count>100||gap<0||gap>12)goto invalid;
@@ -351,9 +395,11 @@ void bp_app_request(bp_app *app,const char *method,const char *path,const void *
     else if(!strcmp(path,"/api/cut")){if(bp_append(&job,"\n\n\n\n\x1bw\x00",7))goto invalid;}
     else if(!strcmp(path,"/api/print/raw")){if(bp_base64_decode(bp_string(body,"data_base64","!"),&job)||!job.len)goto invalid;}
     else if(!strcmp(path,"/api/print/test-page")){
-        if(bp_text(&job,"MP-4200 TH\nPagina de teste\nAcentos: ação, coração, pão, ÚNICO\n0123456789012345678901234567890123456789\n",&o))goto invalid;
+        bp_options text_options=o;text_options.cut=0;text_options.feed=0;
+        if(bp_text(&job,"MP-4200 TH\nPagina de teste\nAcentos: ação, coração, pão, ÚNICO\n0123456789012345678901234567890123456789\n",&text_options))goto invalid;
         {static const char styles[]="\x1b""E""Negrito\x1b""F\n\x1b-\x01""Sublinhado\x1b-\x00\n\x0e""Expandido\x14\n\x1bM\x01""Condensado\x1bM\x00\n";
         if(bp_append(&job,styles,sizeof(styles)-1))goto invalid;}
+        {int i;for(i=0;i<o.feed;i++)if(bp_append(&job,"\n",1))goto invalid;if(o.cut&&bp_append(&job,"\x1bw\x00",3))goto invalid;}
     }else if(!strcmp(path,"/api/print/probe")){
         uint8_t pixels[288]={0};unsigned x,y;bp_options small=o;for(y=0;y<24;y++)for(x=0;x<96;x++)if((x/8+y/8)%2==0)pixels[y*12+x/8]|=(uint8_t)(128>>(x%8));
         if(bp_bitmap(&job,pixels,sizeof(pixels),96,24,&small))goto invalid;

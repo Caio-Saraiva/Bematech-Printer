@@ -1,10 +1,10 @@
 # Application screenshots / Capturas do aplicativo
 
-Real browser captures of the 0.2.0 Windows 98 application running against the
+Real browser captures of the 0.2.1 Windows 98 application running against the
 native C server in simulation. No physical printer was contacted. The hosted
 playground uses the same interface with a browser-only adapter.
 
-Capturas reais da versão 0.2.0 com servidor C em simulação. Nenhuma impressora
+Capturas reais da versão 0.2.1 com servidor C em simulação. Nenhuma impressora
 física foi acionada. A demo hospedada usa a mesma interface.
 
 ## Original Windows 98 studio / Estúdio Windows 98 original
@@ -21,6 +21,7 @@ física foi acionada. A demo hospedada usa a mesma interface.
 ![Drawing](screenshots/drawing-en.png)
 ![3D cost calculator](screenshots/calculator-en.png)
 ![3D model viewer and print preview](screenshots/model-en.png)
+![Custom 3D material controls](screenshots/model-custom-en.png)
 ![Local USB/Serial connection](screenshots/connection-en.png)
 ![Calibration wizard](screenshots/calibration-en.png)
 

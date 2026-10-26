@@ -55,6 +55,18 @@ static int next_char(const unsigned char **p, unsigned *cp) {
     if((n==1 && c<128)||(n==2 && c<2048)||(n==3 && c<65536)||c>0x10ffff||(c>=0xd800&&c<=0xdfff))return -1;
     *cp=c;return 0;
 }
+int bp_cp850(bp_buffer *out,const char *text,int replace_unsupported){
+    const unsigned char *p=(const unsigned char *)text;unsigned c;int i;uint8_t byte;
+    if(!text)return -1;
+    while(*p){
+        if(next_char(&p,&c))return -1;
+        if(c<32||c==127)return -1;
+        byte=0;if(c<127)byte=(uint8_t)c;
+        else for(i=0;i<128;i++)if(cp850[i]==c){byte=(uint8_t)(128+i);break;}
+        if(!byte){if(!replace_unsupported)return -2;byte='?';}
+        if(bp_append(out,&byte,1))return -1;
+    }return 0;
+}
 int bp_text(bp_buffer *out, const char *text, const bp_options *o) {
     const unsigned char *p=(const unsigned char *)text; unsigned c; int col=0,i; uint8_t byte;
     const uint8_t init[]={27,'@',27,'t',2};

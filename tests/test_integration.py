@@ -80,6 +80,10 @@ try:
     assert api("/api/print/document", {"pages": [image], "cut": False, "feed": 0})[0] == 202
     assert api("/api/print/images", {"images": [image, image], "gap": 1})[0] == 202
     assert api("/api/print/raw", {"data_base64": "G0A="})[0] == 202
+    rich = {"rich_lines": [{"align": "center", "parts": [{"text": "ação", "bold": True, "italic": True, "underline": True}]}], "cut": False, "feed": 0}
+    expected_rich = b"\x1b@\x1bt\x02\x1ba\x01\x1bE\x1b4\x1b-\x01a\x87\xc6o\n\x1bF\x1b5\x1b-\x00"
+    status, result = api("/api/print/document", rich)
+    assert status == 202 and result["bytes"] == len(expected_rich), result
     assert profile.exists() and json.loads(profile.read_text())["settings"]["dots"] == 596
     if shutil.which("pdfinfo") and shutil.which("pdftotext"):
         import base64
@@ -139,6 +143,20 @@ try:
                     _, stderr = writer.communicate(timeout=5)
                     assert writer.returncode == 0, stderr
                     assert received == expected
+                    import threading
+                    connection = {"transport": "serial", "device": os.ttyname(slave), "baud": 9600, "data_bits": 8, "parity": "none", "stop_bits": 1}
+                    assert api("/api/connection", connection)[0] == 200
+                    answer = []
+                    sender = threading.Thread(target=lambda: answer.append(api("/api/print/document", rich)))
+                    sender.start()
+                    received = b""
+                    while len(received) < len(expected_rich):
+                        assert select.select([master], [], [], 5)[0], "Rich serial output timed out"
+                        received += os.read(master, 1024)
+                    sender.join(timeout=5)
+                    assert answer and answer[0][0] == 202
+                    assert received == expected_rich, received
+                    assert api("/api/connection", {"transport": "simulation", "device": ""})[0] == 200
                 finally:
                     if writer.poll() is None:
                         writer.kill()

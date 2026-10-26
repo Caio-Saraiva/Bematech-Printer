@@ -80,6 +80,7 @@ const dictionary={
 'Editor · prévia sincronizada.':'Editor · preview synchronized.','Lista · prévia sincronizada.':'List · preview synchronized.','Arquivo · prévia sincronizada.':'File · preview synchronized.',
 '8 até a largura útil':'8 to usable width','320–832 pontos':'320–832 dots','0–20':'0–20','Computador · aguardando consulta':'Computer · waiting for report','Computador · prévia pronta para imprimir':'Computer · report ready to print'
 };
+Object.assign(dictionary,{'Lucro / hora':'Profit / hour','ATENÇÃO: este orçamento gera prejuízo.':'WARNING: this quote results in a loss.','O desconto reduziu a margem efetiva em relação à margem-alvo.':'The discount reduced the effective margin below the target margin.'});
 let locale='en';try{locale=localStorage.getItem('bematech-printer-language')||'en';}catch{}
 if(!['en','pt-BR'].includes(locale))locale='en';
 const values=new WeakMap(),attributes=new WeakMap();
@@ -95,6 +96,7 @@ function t(text){
  .replace(/pose pronta para imprimir/g,'pose ready to print').replace(/ajustando…/g,'adjusting…').replace(/enviada\. Compare o papel antes de aplicar\./g,'sent. Compare the paper before applying.')
  .replace(/Faixa atual:/g,'Current range:').replace(/A tira ainda não foi impressa\./g,'The strip has not been printed yet.').replace(/Escolha no papel ou ajuste a faixa\./g,'Choose on paper or adjust the range.')
  .replace(/^Lendo /,'Reading ').replace(/ páginas carregadas; a prévia mostra a primeira\./g,' pages loaded; preview shows the first.').replace(/ páginas rasterizadas; a prévia mostra a primeira\./g,' rasterized pages; preview shows the first.')
+ .replace(/Página rasterizada (\d+) de (\d+)/g,'Rasterized page $1 of $2').replace(/página carregada/g,'page loaded').replace(/página rasterizada/g,'rasterized page').replace(/^Documento raster #/,'Raster document #').replace(/ enviado sem cortar entre páginas\./g,' sent without cuts between pages.').replace(/ cm de papel/g,' cm of paper')
  .replace(/^Informe um valor entre /,'Enter a value between ').replace(/ e (\d+)\.$/,' and $1.')
  .replace(/Configuração salva/g,'Settings saved').replace(/Impressora adicionada\./g,'Printer added.');
 }

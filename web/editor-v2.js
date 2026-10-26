@@ -26,7 +26,7 @@
     const lines = []; let line = {align:'left', parts:[]};
     const flush = force => { if (force || line.parts.length) lines.push(line); line = {align:line.align,parts:[]}; };
     function visit(node, style, align) {
-      if (node.nodeType === Node.TEXT_NODE) { addPart(line, node.nodeValue.replace(/\u00a0/g, ' '), style); return; }
+      if (node.nodeType === Node.TEXT_NODE) { node.nodeValue.replace(/\u00a0/g, ' ').replace(/\r\n?/g,'\n').split('\n').forEach((text,index)=>{if(index)flush(true);addPart(line,text,style);}); return; }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const tag = node.tagName;
       if (tag === 'BR') { flush(true); return; }

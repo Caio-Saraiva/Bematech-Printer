@@ -1,7 +1,10 @@
-# 0.2.0 — aplicação Windows 98 original restaurada
+# 0.2.1 — aplicação Windows 98 original restaurada
 
 Restaura a identidade visual e todos os utilitários, incluindo visualização e
 impressão 3D. Substitui o redesenho simplificado da 0.1.
+
+Conclui a 0.2.0 com cupons CP850 formatados nativamente, fallback raster,
+quebras de linha preservadas, guias técnicos completos e capturas atualizadas.
 
 - Editor/listas ricos, arquivos PDF/Office, foto completa, desenho avançado e
   calculadora completa.

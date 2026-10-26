@@ -1,7 +1,10 @@
-# 0.2.0 — original Windows 98 application restored
+# 0.2.1 — original Windows 98 application restored
 
 Restores the original visual language and utilities, including the complete
 3D model viewer and printing flow. Supersedes the simplified 0.1 redesign.
+
+Finishes 0.2.0 with native styled CP850 receipts, raster fallback, preserved
+manual line breaks, complete technical guides and refreshed screenshots.
 
 - Rich editor/list, PDF/Office workflows, full photo/drawing tools and complete
   cost calculator.

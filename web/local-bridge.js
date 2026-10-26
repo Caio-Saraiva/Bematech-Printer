@@ -28,7 +28,7 @@ function richLines(html){
  const root=document.createElement('div');root.innerHTML=html;const lines=[];let line={align:'left',parts:[]};
  const flush=force=>{if(force||line.parts.length)lines.push(line);line={align:line.align,parts:[]};};
  function visit(node,style,align){
-   if(node.nodeType===3){let value=node.nodeValue.replace(/\u00a0/g,' ');if(value)line.parts.push({text:value,...style});return;}
+   if(node.nodeType===3){const chunks=node.nodeValue.replace(/\u00a0/g,' ').replace(/\r\n?/g,'\n').split('\n');chunks.forEach((value,index)=>{if(index)flush(true);if(value)line.parts.push({text:value,...style});});return;}
    if(node.nodeType!==1)return;const tag=node.tagName;
    if(tag==='BR'){flush(true);return;}
    if(['SCRIPT','STYLE','IMG','IFRAME','OBJECT'].includes(tag))return;
@@ -53,7 +53,7 @@ function wrap(parts,columns){
  }
  if(line.length||!out.length)out.push(line);return out;
 }
-function documentPages(body,list=false){
+function documentPages(body,list=false,prepared=null){
  const s=store.settings,condensed=!!body.condensed&&!!s.condensed_esc;
  let columns=condensed?s.cols_b:s.cols_a;if(body.expanded)columns=Math.max(1,Math.floor(columns/2));
  let lines=[];
@@ -62,6 +62,7 @@ function documentPages(body,list=false){
    lines=[{align:'center',parts:[{text:title,bold:true}]},{align:'center',parts:[{text:date}]},{align:'left',parts:[{text:'-'.repeat(Math.max(3,Math.min(columns,title.length)))}]}];
    for(const source of richLines(body.html||'').filter(x=>x.parts.some(p=>p.text.trim())))wrap(source.parts,columns-2).forEach((row,i)=>lines.push({align:'left',parts:[{text:i?'  ':'- '},...row]}));
  }else for(const source of richLines(body.html||''))for(const parts of wrap(source.parts,columns))lines.push({align:source.align,parts});
+ if(prepared){prepared.lines=lines;prepared.columns=columns;}
  if(!lines.some(line=>line.parts.some(p=>p.text.trim())))throw Error('No content to print.');
  if(lines.length>2000)throw Error('Split this document into smaller jobs (maximum 2,000 text rows).');
  const pages=[],lineHeight=24,rowsPerPage=75,charWidth=(s.dots-8)/columns;
@@ -145,7 +146,8 @@ function quoteCsv(quotes){
 async function request(path,opt={}){
  await ready;const post=(opt.method||'GET')==='POST';let body=post&&typeof opt.body==='string'?JSON.parse(opt.body):{};
  if(path==='/api/print/document'||path==='/api/print/list-rich'){
-   body={...body,pages:documentPages(body,path==='/api/print/list-rich')};delete body.html;
+   const prepared={};const pages=documentPages(body,path==='/api/print/list-rich',prepared);
+   body={...body,pages,rich_lines:prepared.lines};delete body.html;
    opt={...opt,body:JSON.stringify(body)};
  }
  if(path==='/api/print/image')lastJob={images:[clone(body)],body:clone(body)};

@@ -9,6 +9,9 @@ int main(void){
     CHECK(bp_text(&b,"ação",&o)==0);CHECK(b.len==sizeof(expected));CHECK(!memcmp(b.data,expected,sizeof(expected)));bp_free(&b);
     CHECK(bp_text(&b,"malicious\x1b@",&o)<0);bp_free(&b);
     CHECK(bp_text(&b,"emoji 😀",&o)<0);bp_free(&b);
+    CHECK(bp_cp850(&b,"ação",0)==0);CHECK(b.len==4);CHECK(!memcmp(b.data,"a\x87\xc6o",4));bp_free(&b);
+    CHECK(bp_cp850(&b,"😀",0)==-2);bp_free(&b);
+    CHECK(bp_cp850(&b,"😀",1)==0);CHECK(b.len==1&&b.data[0]=='?');bp_free(&b);
     CHECK(bp_text(&b,"\xc0\xaf",&o)<0);bp_free(&b);
     CHECK(bp_text(&b,"\xe2",&o)<0);bp_free(&b);
     CHECK(bp_bitmap(&b,&pixel,1,1,1,&o)==0);CHECK(b.data[13]==128);bp_free(&b);

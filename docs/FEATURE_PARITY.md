@@ -31,9 +31,10 @@ O visualizador 3D mantém seus recursos originais, com adaptação para impress�
 
 The backend is C99 instead of Python. The shared browser interface stays
 HTML/CSS/JavaScript; device transport and ESC/Bema encoding are C.
-Rich web receipts become monochrome pages using the original style/column
-rules and are converted to ESC-star bands by C. CLI text also has a direct
-UTF-8/CP850 path.
+Rich web receipts use native CP850 text and ESC/Bema alignment, bold, italic
+and underline commands from C. Characters outside CP850 use monochrome page
+fallbacks with the original style/column rules. Photo, drawing and 3D previews
+become ESC-star bands in C. CLI text also has a direct UTF-8/CP850 path.
 
 Account-scoped storage becomes a local profile. No credentials, account system,
 tunnel or private service deployment are included. Diagnostic reports describe

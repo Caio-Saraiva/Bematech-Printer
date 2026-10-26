@@ -1,113 +1,118 @@
-# Build, test and package
+# Build, test, package and maintain
 
 [English](DEVELOPMENT.md) · [Português](../pt-BR/DESENVOLVIMENTO.md)
 
-## Toolchains
+## Build requirements
 
-| System | Build tools |
+C99 compiler, CMake 3.20+ and Make/Ninja (or Visual Studio).
+cJSON and PDF.js are vendored at fixed versions; application use does not need
+Python, Node, npm, pip or a build-time network fetch.
+
+| Platform | Tools |
 | --- | --- |
-| Windows | Visual Studio Build Tools with Desktop C/C++, CMake; NSIS for installer |
-| Linux | GCC or Clang, CMake 3.20+, Make or Ninja; dpkg tools for DEB |
-| macOS | Xcode Command Line Tools, CMake; hdiutil and codesign for DMG |
-| Optional checks | Python 3 for integration/checksum scripts; Node for JS syntax checks |
+| Windows | Visual Studio Desktop C/C++, CMake; NSIS for installer |
+| Linux | GCC/Clang, CMake, Make/Ninja; dpkg for DEB |
+| macOS | Xcode Command Line Tools, CMake; hdiutil/codesign for DMG |
 
-There are no required application runtime packages or fetched C dependencies.
-Native PDF/Office import optionally invokes Poppler and LibreOffice; see the user guide.
-cJSON is vendored under MIT, and PDF.js assets retain their Apache 2.0 license.
+Python 3 is optional for integration/fixture/checksum scripts. Node can validate
+JavaScript syntax. Poppler and LibreOffice are optional native document helpers.
 
 ~~~sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
+./build/bematech-printer --no-open --config /tmp/bematech-dev/settings.json
 ~~~
 
-On Linux/macOS, run ./build/bematech-printer --no-open for terminal-controlled
-preview. Visual Studio executables are under build/Release/.
+Visual Studio uses build/Release/bematech-printer.exe. The web assets are
+embedded during compilation: rebuild and restart after changing web/.
 
-## Tests and validation
+## Tests
 
-The C suite checks exact CP850 bytes, strict UTF-8, embedded ESC refusal,
-line wrapping, bitmap dimensions, malformed P4 and preservation of leading
-whitespace-valued raster bytes. Tests do not rely on assert(), so Release
-optimization does not remove them.
+Core C tests check exact CP850 bytes, unsupported Unicode, invalid UTF-8,
+control-command injection, wrapping, bitmap bounds and strict P4 parsing.
+Checks remain active in Release.
 
-If Python is available at configure time, CTest also starts a simulation
-server, checks Host/Origin behavior, exercises valid and invalid print
-requests, verifies CLI output, profile persistence across a restart, relative profile paths,
-row/continuous bitmap centering and sends jobs to a virtual POSIX serial port.
-This never discovers or opens the user's real printer.
+The optional Python integration suite launches a simulation server using a
+temporary profile. It checks settings, device/connection validation, history,
+CSV formula safety, calibration, diagnostics, CLI output and C styled text.
+POSIX tests capture actual bytes through a virtual serial master; no physical
+printer is discovered or opened for output. PDF and Office checks run when
+the matching helpers are installed.
 
-Browser QA is separate: editor, list, documents, image, drawing, calculator,
-3D model import/print, connection, calibration, exports, invalid input,
-EN/PT-BR and 360/768/1280 widths. Documentation captures
-show the app, not mockup artwork. When updating web files, rebuild before
-testing the executable because assets are embedded at compile time.
+Generate original browser fixtures:
+
+~~~sh
+python3 tests/make_fixtures.py
+~~~
+
+This writes test PDF/DOCX/OBJ under ignored output/fixtures/. The repository
+also includes cube.obj, a text file and a vector photo test pattern.
+
+Browser validation must cover the original eight tabs (editor, list, file,
+photo, drawing, calculator, computer, model), two languages and widths
+360/768/1280. Test visible preview after transitions from photo/model, rich
+styles, file numbering/blank lines, PDF/Office import, drawing history,
+calculator customer/history/CSV, model materials/pose/printing and connection
+save/test. An HTTP success alone does not prove a rendered preview is visible.
+
+Compare web ESC export with native C encoding for a bitmap fixture. Inspect
+every documentation screenshot and never use a mockup as implementation proof.
+
+## Preserving the original UI
+
+The original Windows 98 CSS and utility files are the design baseline.
+Keep bevels, compact controls, blue title bars, gray workspace and physical paper.
+Add platform controls separately; do not replace utility modules with smaller
+reimplementations. The 3D viewer must keep its original format/material/camera
+surface. See FEATURE_PARITY.md before removing or limiting any behavior.
+
+English is the default interface; PT-BR remains available. Translation operates
+on UI text/attributes, preserving control values and user-authored content.
+Add dictionary entries and check long labels in both languages.
 
 ## Packaging
 
 ~~~sh
-# Portable archive; run from repository root
 cpack --config build/CPackConfig.cmake -C Release -G ZIP
-
-# Linux Debian
 cpack --config build/CPackConfig.cmake -G DEB
-
-# Windows NSIS installer
 cpack --config build/CPackConfig.cmake -C Release -G NSIS
-
-# macOS .app and DMG
 sh packaging/macos.sh build
-
-# Linux AppImage — obtain appimagetool 1.9.1 from its upstream release
 sh packaging/appimage.sh build /absolute/path/to/appimagetool-x86_64.AppImage
 ~~~
 
-AppImage packaging stages an AppDir with AppRun, desktop entry, icon and
-embedded executable. The DEB is built against the build host libc, so avoid
-using a newer distribution than your intended deployment baseline.
-The AppImage does not bundle glibc.
+Windows uses a static MSVC runtime. AppImage stages AppRun, desktop entry, icon
+and the embedded executable; it does not bundle glibc or Office helpers.
+Build Linux packages against a suitable older distribution baseline.
+macOS is built separately for Intel and Apple silicon, then ad-hoc signed.
+Public Windows signing and Apple notarization need identities not stored here.
 
-The macOS package is built separately for Apple silicon and Intel. It receives
-an ad-hoc integrity signature only. Distribution notarization requires an Apple
-Developer identity and is deliberately not configured with credentials here.
-Windows signing likewise requires your own certificate.
+Include application/third-party license notices in distributions. Poppler and
+LibreOffice remain optional OS installations; do not silently bundle unrelated
+machine environments or private configuration.
 
 ## CI and release
 
-.github/workflows/build.yml builds and tests Linux x86-64, Windows x86-64,
-macOS arm64 and macOS x86-64. It uploads native archives plus DEB, AppImage,
-NSIS and DMG packages, with SHA256SUMS. Branch/PR runs produce artifacts;
-version tags produce a preview GitHub Release after every build succeeds.
+The workflow builds/tests/packages Linux x86-64, Windows x86-64, macOS arm64 and
+macOS x86-64. Branch/PR runs produce artifacts; version tags create a preview
+release after all native jobs pass. Release-wide SHA256SUMS uses final download
+filenames.
 
-To cut a new version:
+Update BP_VERSION, CMake version and macOS bundle version together. Update
+English/PT-BR release notes, screenshots and parity documentation. Test native
+and browser paths, commit, create vX.Y.Z and push it. Inspect downloadable
+packages and their hashes before handoff.
 
-1. Update BP_VERSION, the CMake project version and macOS bundle metadata.
-2. Update both release-notes files and regenerate any stale screenshots.
-3. Run CTest and browser QA.
-4. Commit, create vX.Y.Z and push the tag.
-5. Inspect all native jobs and release assets before promoting the release.
+## Hosted demo boundary
 
-A successful compile/package is not physical hardware certification. Test the
-exact printer mode on each OS before claiming hardware coverage.
-
-## Extending the app
-
-Keep device bytes in the C engine. UI tools should produce a monochrome bitmap
-and use the existing P4 contract rather than introducing arbitrary raw-command
-HTTP endpoints. Add exact-byte C tests when adding printer commands. Keep
-limits at each boundary and preserve loopback binding.
-
-Portuguese source strings live in the original UI modules; English translations
-and dynamic strings live in web/i18n.js. Update both languages and test long labels.
-
-The hosted playground checkout is maintained separately. To refresh it, copy
-the approved static assets into the private deployment checkout and retain its
-demo-only wrapper. Never copy deployment identity or credentials into this
-repository. Public screenshots may be copied into docs/screenshots/.
+The hosted wrapper, project identity, deployment manifest and source checkout
+are separate from this public repository. Copy approved static UI assets to
+that checkout, retain the demo-only flag, and verify it makes no /api/
+requests or hardware calls. Do not reuse the private production service.
+Browser PDF/Office compatibility differs from native helpers as documented.
 
 ## Repository hygiene
 
-build*/, dist/, logs, raw jobs, .env*, credentials, Playwright output and
-hosting metadata are ignored. Commit only source, documentation and approved
-documentation screenshots. Keep the public history independent of the private
-Bematech service.
+Do not commit profiles, quotes, user images/models, credentials, helper output,
+builds or browser test output. Approved screenshots live in docs/screenshots/.
+Keep temporary profiles outside the checkout, or use ignored paths.
