@@ -92,9 +92,13 @@ Confira os pacotes baixados e hashes antes de entregar.
 
 ## Demo e higiene
 
-Wrapper, identidade de hospedagem, manifesto e checkout da demo ficam separados
-do repo público. Copie assets aprovados, preserve o flag de simulação e confirme
-ausência de chamadas /api/ ou hardware. Não use o serviço privado como backend.
+A demo local usa `tools/serve_demo.py` e o serviço de usuário em
+`packaging/bematech-demo.service`. Uma cópia estática temporária de `web/` é
+servida em `127.0.0.1:8422`, com o flag de simulação definido antes dos scripts
+da aplicação. Confirme ausência de chamadas /api/ ou hardware.
+O Cloudflare Tunnel encaminha o domínio público a esse serviço local;
+credenciais e configuração da conta ficam fora do repositório.
+Não use o serviço privado como backend.
 As diferenças de PDF/Office por ambiente estão documentadas.
 
 Não versione perfis, orçamentos, imagens/modelos do usuário, credenciais,

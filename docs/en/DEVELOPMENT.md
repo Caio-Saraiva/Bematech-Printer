@@ -105,10 +105,13 @@ packages and their hashes before handoff.
 
 ## Hosted demo boundary
 
-The hosted wrapper, project identity, deployment manifest and source checkout
-are separate from this public repository. Copy approved static UI assets to
-that checkout, retain the demo-only flag, and verify it makes no /api/
-requests or hardware calls. Do not reuse the private production service.
+The self-hosted demo uses `tools/serve_demo.py` and the user service in
+`packaging/bematech-demo.service`. It serves a temporary static snapshot of
+`web/` on `127.0.0.1:8422`, forcing the demo-only flag before application
+scripts load. Verify it makes no /api/ requests or hardware calls.
+Cloudflare Tunnel routes the public hostname to this loopback service;
+credentials and account configuration stay outside this repository.
+Do not reuse the private production service.
 Browser PDF/Office compatibility differs from native helpers as documented.
 
 ## Repository hygiene

@@ -7,7 +7,7 @@ drawing, the complete 3D cost calculator, **3D model viewing and printing**,
 diagnostics and calibration are retained. No authentication is required.
 Configure USB/Serial/system RAW output from the Windows 98 connection dialog.
 
-[Try the demo](https://bematech-printer-demo.lilbigcheetos.chatgpt.site) ·
+[Try the demo](https://thermaldemo.caiosaraiva.com) ·
 [Native downloads](https://github.com/Caio-Saraiva/Bematech-Printer/releases) ·
 [Português brasileiro](README.pt-BR.md)
 
@@ -24,7 +24,40 @@ Configure USB/Serial/system RAW output from the Windows 98 connection dialog.
 
 The app opens your browser at **http://127.0.0.1:8421**. Python and Node are not
 application runtime requirements. Optional native PDF/Office helpers are
-documented below. Hosting metadata and the demo wrapper stay outside this repo.
+documented below. The browser-only demo runs as a separate static service.
+
+## Self-hosted demo
+
+The public demo uses `https://thermaldemo.caiosaraiva.com`, routed through
+Cloudflare Tunnel to `http://127.0.0.1:8422` on the server.
+Python 3 is required only for this static demo server:
+
+~~~sh
+python3 tools/serve_demo.py --port 8422
+~~~
+
+This serves a temporary snapshot of `web/` with browser simulation forced
+before the application loads. It provides no native API or printer access.
+Only static web assets are served; repository files are outside the web root.
+
+For a Linux user service (checkout at `~/Bematech-Printer`):
+
+~~~sh
+mkdir -p ~/.config/systemd/user
+cp packaging/bematech-demo.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now bematech-demo.service
+~~~
+
+Enable lingering with `sudo loginctl enable-linger "$USER"` to start at boot
+and keep running after logout. Restart `bematech-demo.service` after updates
+to refresh the static snapshot.
+
+In the existing Cloudflare Tunnel, add a published application route for
+`thermaldemo.caiosaraiva.com` with service type **HTTP** and URL
+`127.0.0.1:8422`. The tunnel connector must run on this host to reach loopback.
+Use the tunnel's DNS record, rather than the previous Sites custom-domain
+target. Tunnel credentials and account configuration stay outside Git.
 
 ## First run
 

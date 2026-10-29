@@ -1,0 +1,17 @@
+[Unit]
+Description=Bematech Printer browser-only demo
+After=network.target
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/python3 %h/Bematech-Printer/tools/serve_demo.py --port 8422
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+UMask=0077
+
+[Install]
+WantedBy=default.target
