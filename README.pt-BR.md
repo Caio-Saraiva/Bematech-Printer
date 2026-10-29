@@ -11,7 +11,7 @@ calibração. Sem autenticação. USB/Serial é configurado na própria interfac
 [Downloads](https://github.com/Caio-Saraiva/Bematech-Printer/releases)
 
 ![Aplicação original](docs/screenshots/editor-pt-BR.png)
-![Modelo 3D](docs/screenshots/model-3d-en.png)
+![Modelo 3D](docs/screenshots/model-en.png)
 
 ## Começar
 

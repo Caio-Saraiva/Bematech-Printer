@@ -12,7 +12,7 @@ Configure USB/Serial/system RAW output from the Windows 98 connection dialog.
 [Português brasileiro](README.pt-BR.md)
 
 ![Windows 98 editor](docs/screenshots/editor-en.png)
-![3D model viewer and printing](docs/screenshots/model-3d-en.png)
+![3D model viewer and printing](docs/screenshots/model-en.png)
 
 ## Versions
 
